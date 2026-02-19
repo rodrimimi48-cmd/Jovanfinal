@@ -1,2 +1,2 @@
 <?php
-echo "Backend operativo.";
+echo "Backend operativo. Ruta: " . __FILE__;
