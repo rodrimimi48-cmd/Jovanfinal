@@ -1,41 +1,71 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; max-width: 480px; margin: 32px auto; padding: 0 16px; }
+    input, button { font-size: 16px; padding: 10px 12px; width: 100%; box-sizing: border-box; }
+    button { cursor: pointer; }
+    .spacer { height: 12px; }
+    #msg { color: #c0392b; }
+  </style>
 </head>
 <body>
-<h1>Iniciar sesión</h1>
+  <h1>Iniciar sesión</h1>
 
-<input id="email" type="email" placeholder="Email"><br><br>
-<input id="pass" type="password" placeholder="Contraseña"><br><br>
-<button onclick="login()">Entrar</button>
+  <input id="email" type="email" placeholder="Email" autocomplete="username" required />
+  <div class="spacer"></div>
+  <input id="pass" type="password" placeholder="Contraseña" autocomplete="current-password" required />
+  <div class="spacer"></div>
+  <button id="btnLogin" onclick="login()">Entrar</button>
 
-<p id="msg" style="color:red;"></p>
+  <p id="msg"></p>
 
-<script>
-const BACKEND="https://Jovanfinal.onrender.com"; // AJUSTA
+  <script>
+    // ⚠️ Usa tu backend real (Render):
+    const BACKEND = "https://Jovanfinal.onrender.com";
 
-async function login(){
-  const email = document.getElementById('email').value;
-  const password = document.getElementById('pass').value;
+    async function login() {
+      const msg = document.getElementById('msg');
+      const btn = document.getElementById('btnLogin');
+      msg.textContent = "";
+      btn.disabled = true;
 
-  const r = await fetch(`${BACKEND}/api/login.php`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password })
-  });
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('pass').value;
 
-  const data = await r.json();
-  if(!r.ok){
-    document.getElementById('msg').textContent = data.error;
-    return;
-  }
+      if (!email || !password) {
+        msg.textContent = "Completa email y contraseña.";
+        btn.disabled = false;
+        return;
+      }
 
-  window.location = "qr-verify.html";
-}
-</script>
+      try {
+        const r = await fetch(`${BACKEND}/api/login.php`, {
+          method: "POST",
+          credentials: "include",                 // mantiene la cookie de sesión
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password })
+        });
 
+        const data = await r.json().catch(() => ({}));
+
+        if (!r.ok) {
+          msg.textContent = data.error || "No se pudo iniciar sesión.";
+          btn.disabled = false;
+          return;
+        }
+
+        // Si todo va bien, pasamos a la verificación por QR
+        window.location = "qr-verify.html";
+      } catch (err) {
+        console.error(err);
+        msg.textContent = "Error de red. Intenta de nuevo.";
+        btn.disabled = false;
+      }
+    }
+  </script>
 </body>
 </html>
