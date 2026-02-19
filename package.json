@@ -1,11 +1,11 @@
 {
   "name": "jovanfinal",
   "version": "1.0.0",
-  "description": "",
-  "main": "script.js",
+  "description": "Proyecto Node.js con IA, mapa y frontend",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",
