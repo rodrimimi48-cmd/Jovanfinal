@@ -3,11 +3,11 @@
 //////////////////////
 const codigoCorrecto = "123456";
 
-function verificarCodigo(){
+function verificarCodigo() {
   const codigo = document.getElementById("codigo").value;
   const msg = document.getElementById("verificacion-msg");
 
-  if(codigo === codigoCorrecto){
+  if (codigo === codigoCorrecto) {
     msg.innerText = "Verificación correcta ✅";
     msg.style.color = "green";
   } else {
@@ -38,36 +38,30 @@ function initMap() {
       "Error cargando Google Maps: " + error.message;
   }
 }
-
 window.initMap = initMap;
 
 //////////////////////
 // IA DINOSAURIOS
 //////////////////////
-async function preguntarIA(){
+async function preguntarIA() {
   const pregunta = document.getElementById("pregunta").value;
   const respuestaBox = document.getElementById("respuesta");
 
-  if(!pregunta) return;
-
+  if (!pregunta) return;
   respuestaBox.innerText = "Cargando...";
 
   try {
     const res = await fetch("/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pregunta })
+      body: JSON.stringify({ pregunta }),
     });
 
     const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(data.error || "Error desconocido");
-    }
+    if (!res.ok) throw new Error(data.error || "Error desconocido");
 
     respuestaBox.innerText = data.respuesta;
-
-  } catch(error){
+  } catch (error) {
     respuestaBox.innerText = "Error IA: " + error.message;
   }
 }
@@ -75,7 +69,7 @@ async function preguntarIA(){
 //////////////////////
 // YOUTUBE
 //////////////////////
-async function cargarVideosYouTube(){
+async function cargarVideosYouTube() {
   const contenedor = document.getElementById("youtube-videos");
   const errorBox = document.getElementById("youtube-error");
 
@@ -86,19 +80,16 @@ async function cargarVideosYouTube(){
     const res = await fetch("/youtube");
     const data = await res.json();
 
-    if (!res.ok) {
-      throw new Error(data.error || "Error desconocido");
-    }
-
+    if (!res.ok) throw new Error(data.error || "Error desconocido");
     errorBox.innerText = "";
 
-    if(!data.items || data.items.length === 0){
+    if (!data.items || data.items.length === 0) {
       errorBox.innerText = "No se encontraron videos.";
       return;
     }
 
-    data.items.forEach(item => {
-      if(item.id.kind === "youtube#video"){
+    data.items.forEach((item) => {
+      if (item.id.kind === "youtube#video") {
         contenedor.innerHTML += `
           <div class="video">
             <iframe width="300" height="170"
@@ -111,8 +102,7 @@ async function cargarVideosYouTube(){
         `;
       }
     });
-
-  } catch(err){
+  } catch (err) {
     errorBox.innerText = "Error YouTube: " + err.message;
   }
 }
@@ -120,40 +110,112 @@ async function cargarVideosYouTube(){
 //////////////////////
 // FACEBOOK
 //////////////////////
-async function cargarPostsFacebook(){
+async function cargarPostsFacebook() {
   const contenedor = document.getElementById("facebook-posts");
   const errorBox = document.getElementById("facebook-error");
 
   contenedor.innerHTML = "";
   errorBox.innerText = "Cargando publicaciones...";
 
-  try{
+  try {
     const res = await fetch("/facebook");
     const data = await res.json();
 
-    if (!res.ok) {
-      throw new Error(data.error || "Error desconocido");
-    }
-
+    if (!res.ok) throw new Error(data.error || "Error desconocido");
     errorBox.innerText = "";
 
-    if(!data.data || data.data.length === 0){
+    if (!data.data || data.data.length === 0) {
       errorBox.innerText = "No se encontraron publicaciones.";
       return;
     }
 
-    data.data.forEach(post => {
+    data.data.forEach((post) => {
       contenedor.innerHTML += `
         <div class="fb-post">
           <p>${post.message || "[Sin mensaje]"}</p>
-          <a href="${post.permalink_url}" target="_blank">
+          <a href="${post.permalink_url}" target="_blank" rel="noopener noreferrer">
             Ver en Facebook
           </a>
         </div>
       `;
     });
-
-  } catch(err){
+  } catch (err) {
     errorBox.innerText = "Error Facebook: " + err.message;
   }
 }
+
+//////////////////////
+// STREAMING (Cloudflare R2)
+//////////////////////
+async function loadVideos() {
+  const grid = document.getElementById("videos-grid");
+  if (!grid) return;
+
+  grid.innerHTML = "Cargando...";
+
+  try {
+    const r = await fetch("/videos");
+    const data = await r.json();
+    grid.innerHTML = "";
+
+    (data.videos || []).forEach((v) => {
+      const card = document.createElement("div");
+      card.className = "video-card";
+      card.style.maxWidth = "320px";
+      card.innerHTML = `
+        <video controls preload="metadata" style="width:100%;border-radius:10px">
+          ${v.url}
+        </video>
+        <div style="font-size:12px;color:#555;margin-top:6px">
+          <div><b>Key:</b> ${v.key}</div>
+          <div><b>Tamaño:</b> ${(v.size / 1024 / 1024).toFixed(1)} MB</div>
+          <div><b>Modificado:</b> ${new Date(v.lastModified).toLocaleString()}</div>
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+
+    if (!data.videos || !data.videos.length) {
+      grid.innerHTML = "<em>Sin videos</em>";
+    }
+  } catch (e) {
+    grid.innerHTML = "Error al cargar videos";
+    console.error(e);
+  }
+}
+
+async function handleUpload(e) {
+  e.preventDefault();
+  const status = document.getElementById("upload-status");
+  const input = document.getElementById("video");
+  const file = input?.files?.[0];
+  if (!file) return;
+
+  status.textContent = "Subiendo...";
+
+  try {
+    const fd = new FormData();
+    fd.append("video", file);
+
+    const r = await fetch("/upload", { method: "POST", body: fd });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || "Error de subida");
+
+    status.textContent = "✓ Subido";
+    await loadVideos();
+  } catch (err) {
+    status.textContent = "Error: " + err.message;
+  } finally {
+    setTimeout(() => (status.textContent = ""), 3000);
+    if (input) input.value = "";
+  }
+}
+
+//////////////////////
+// INIT
+//////////////////////
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("uploadForm")?.addEventListener("submit", handleUpload);
+  document.getElementById("refreshBtn")?.addEventListener("click", loadVideos);
+  loadVideos(); // carga inicial de videos si existen
+});

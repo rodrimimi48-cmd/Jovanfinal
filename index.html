@@ -1,11 +1,14 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Ark</title>
-  <link rel="stylesheet" href="style.css">
 
+  <!-- Estilos principales -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Estilos rápidos locales (puedes dejarlos o moverlos a style.css) -->
   <style>
     #map {
       width: 100%;
@@ -42,7 +45,7 @@
 
     <!-- 2FA -->
     <h2>Verificación en 2 pasos</h2>
-    <input type="text" id="codigo" placeholder="Ingresa código">
+    <input type="text" id="codigo" placeholder="Ingresa código" />
     <button onclick="verificarCodigo()">Verificar</button>
     <p id="verificacion-msg"></p>
 
@@ -53,27 +56,27 @@
 
     <!-- IA -->
     <h2>Chat IA sobre Dinosaurios</h2>
-    <input type="text" id="pregunta" placeholder="Pregunta sobre dinosaurios">
+    <input type="text" id="pregunta" placeholder="Pregunta sobre dinosaurios" />
     <button onclick="preguntarIA()">Preguntar</button>
     <p id="respuesta"></p>
 
     <!-- STREAMING -->
     <h2>Mis Videos (Streaming)</h2>
-
     <form id="uploadForm" enctype="multipart/form-data">
       <label>Subir video MP4/WEBM/OGG:</label>
-      <input type="file" id="video" name="video" accept="video/mp4,video/webm,video/ogg" required>
+      <input type="file" id="video" name="video" accept="video/mp4,video/webm,video/ogg" required />
       <button type="submit">Subir video</button>
       <p id="upload-status"></p>
     </form>
 
     <div>
-      <button onclick="loadVideos()">Actualizar lista</button>
+      <button id="refreshBtn" type="button">Actualizar lista</button>
     </div>
 
     <div id="videos-grid"></div>
   </div>
 
+  <!-- JS de la app -->
   <script src="script.js"></script>
 
   <!-- Google Maps -->

@@ -5,8 +5,15 @@ const path = require("path");
 const axios = require("axios");
 
 // === STREAMING APP ===
+const fs = require("fs");
+const os = require("os"); // 🔴 CAMBIO: usaremos temp dir del sistema
 const multer = require("multer");
-const { S3Client, PutObjectCommand, ListObjectsV2Command, GetObjectCommand } = require("@aws-sdk/client-s3");
+const {
+  S3Client,
+  PutObjectCommand,
+  ListObjectsV2Command,
+  GetObjectCommand
+} = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const { v4: uuidv4 } = require("uuid");
 const mime = require("mime-types");
@@ -29,6 +36,9 @@ console.log("YOUTUBE:", process.env.YOUTUBE_API_KEY ? "✅ Cargada" : "❌ No ca
 console.log("FB_PAGE_ID:", process.env.FB_PAGE_ID ? "✅ Cargada" : "❌ No cargada");
 console.log("FB_ACCESS_TOKEN:", process.env.FB_ACCESS_TOKEN ? "✅ Cargada" : "❌ No cargada");
 console.log("S3_BUCKET:", process.env.S3_BUCKET ? "✅ Cargada" : "❌ No cargada");
+console.log("S3_REGION:", process.env.S3_REGION || "❌ Vacía");
+console.log("S3_ENDPOINT:", process.env.S3_ENDPOINT ? "✅ Cargada" : "❌ No cargada");
+console.log("S3_FORCE_PATH_STYLE:", process.env.S3_FORCE_PATH_STYLE || "❌ Vacía");
 console.log("=================================");
 
 ////////////////////////////////////////////////////
@@ -139,9 +149,7 @@ app.get("/facebook", async (req, res) => {
       });
     }
 
-    // ⚠️ Recuerda: si FB_PAGE_ID es de un grupo, /posts no funciona en Graph API actual.
-    // Usa un Page ID si quieres leer posts de una Página.
-
+    // ⚠️ Si FB_PAGE_ID es de un grupo, /posts no funciona con la Graph API actual.
     const response = await axios.get(
       `https://graph.facebook.com/v18.0/${process.env.FB_PAGE_ID}/posts`,
       {
@@ -164,25 +172,32 @@ app.get("/facebook", async (req, res) => {
 });
 
 ////////////////////////////////////////////////////
-// === STREAMING APP === S3 CLIENT
+// === STREAMING APP === S3 CLIENT (Cloudflare R2 o S3-compatible)
 ////////////////////////////////////////////////////
-const s3 = new (require("@aws-sdk/client-s3").S3Client)({
+const s3 = new S3Client({
   region: process.env.S3_REGION || "auto",
   endpoint: process.env.S3_ENDPOINT || undefined,
-  forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true" || !!process.env.S3_ENDPOINT, // R2/B2
+  forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true" || !!process.env.S3_ENDPOINT, // ✅ R2/B2 requieren path-style
   credentials: {
     accessKeyId: process.env.S3_ACCESS_KEY_ID || "",
     secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || ""
   }
 });
 
-// === STREAMING APP === Multer (memoria) con límites de tamaño y filtro MIME
+// === STREAMING APP === Multer en disco temporal + filtro MIME (evita RAM alta)
+const allowedMimes = ["video/mp4", "video/webm", "video/ogg"];
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, os.tmpdir()), // ✅ usa /tmp efímero
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase() || `.${mime.extension(file.mimetype) || "mp4"}`;
+    cb(null, `${uuidv4()}${ext}`);
+  }
+});
 const upload = multer({
-  storage: multer.memoryStorage(),
+  storage,
   limits: { fileSize: 1024 * 1024 * 500 }, // 500 MB
   fileFilter: (req, file, cb) => {
-    const allowed = ["video/mp4", "video/webm", "video/ogg"];
-    if (!allowed.includes(file.mimetype)) {
+    if (!allowedMimes.includes(file.mimetype)) {
       return cb(new Error("Solo se permiten videos MP4/WEBM/OGG."));
     }
     cb(null, true);
@@ -190,9 +205,10 @@ const upload = multer({
 });
 
 ////////////////////////////////////////////////////
-// === STREAMING APP === SUBIR VIDEO
+// === STREAMING APP === SUBIR VIDEO (stream a R2)
 ////////////////////////////////////////////////////
 app.post("/upload", upload.single("video"), async (req, res) => {
+  const tempPath = req.file?.path;
   try {
     if (!process.env.S3_BUCKET) {
       return res.status(500).json({ error: "S3_BUCKET no configurado" });
@@ -201,31 +217,37 @@ app.post("/upload", upload.single("video"), async (req, res) => {
       return res.status(400).json({ error: "No se recibió archivo 'video'" });
     }
 
-    const ext = mime.extension(req.file.mimetype) || "mp4";
-    const key = `videos/${uuidv4()}.${ext}`;
+    const contentType = req.file.mimetype;
+    const key = `videos/${req.file.filename}`; // ya trae UUID+ext
 
+    // 🔴 CAMBIO: NO usar ACL con R2; acceso se maneja por token/políticas.
     const put = new PutObjectCommand({
       Bucket: process.env.S3_BUCKET,
       Key: key,
-      Body: req.file.buffer,
-      ContentType: req.file.mimetype,
-      ACL: "private" // mantenlo privado, servimos por URL prefirmada
+      Body: fs.createReadStream(tempPath), // stream para no cargar en RAM
+      ContentType: contentType
     });
 
-    await s3.send(put);
+    const result = await s3.send(put);
+
+    // Limpieza del archivo temporal (no bloquear respuesta si falla)
+    fs.unlink(tempPath, () => {});
 
     return res.status(201).json({
       ok: true,
-      key
+      key,
+      eTag: result.ETag || null
     });
   } catch (err) {
-    console.error("🔥 ERROR UPLOAD:", err.message);
-    return res.status(500).json({ error: err.message });
+    // Limpieza si hubo error
+    if (tempPath) fs.unlink(tempPath, () => {});
+    console.error("🔥 ERROR UPLOAD:", err?.name, err?.message, err?.$metadata || "");
+    return res.status(500).json({ error: err?.message || "Error subiendo el video" });
   }
 });
 
 ////////////////////////////////////////////////////
-// === STREAMING APP === LISTAR VIDEOS + URLS prefirmadas
+// === STREAMING APP === LISTAR VIDEOS + URLs prefirmadas (GET 1h)
 ////////////////////////////////////////////////////
 app.get("/videos", async (req, res) => {
   try {
@@ -233,7 +255,6 @@ app.get("/videos", async (req, res) => {
       return res.status(500).json({ error: "S3_BUCKET no configurado" });
     }
 
-    // Listado simple por prefijo
     const list = new ListObjectsV2Command({
       Bucket: process.env.S3_BUCKET,
       Prefix: "videos/",
@@ -243,7 +264,6 @@ app.get("/videos", async (req, res) => {
     const out = await s3.send(list);
     const contents = out.Contents || [];
 
-    // Genera URL prefirmada por cada video
     const results = await Promise.all(
       contents
         .filter(obj => obj.Key && !obj.Key.endsWith("/"))
@@ -264,10 +284,24 @@ app.get("/videos", async (req, res) => {
 
     res.json({ videos: results });
   } catch (err) {
-    console.error("🔥 ERROR VIDEOS:", err.message);
-    res.status(500).json({ error: err.message });
+    console.error("🔥 ERROR VIDEOS:", err?.name, err?.message, err?.$metadata || "");
+    res.status(500).json({ error: err?.message || "Error listando videos" });
   }
 });
+
+////////////////////////////////////////////////////
+// (Opcional) DEBUG R2 - Quitar en producción
+////////////////////////////////////////////////////
+// app.get("/debug-r2", (req, res) => {
+//   res.json({
+//     S3_BUCKET: process.env.S3_BUCKET,
+//     S3_REGION: process.env.S3_REGION,
+//     S3_ENDPOINT: process.env.S3_ENDPOINT,
+//     S3_FORCE_PATH_STYLE: process.env.S3_FORCE_PATH_STYLE,
+//     HAS_KEY: !!process.env.S3_ACCESS_KEY_ID,
+//     HAS_SECRET: !!process.env.S3_SECRET_ACCESS_KEY
+//   });
+// });
 
 ////////////////////////////////////////////////////
 // INICIAR SERVIDOR
