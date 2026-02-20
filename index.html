@@ -8,7 +8,6 @@
   <!-- Estilos principales -->
   <link rel="stylesheet" href="style.css" />
 
-  <!-- Estilos rápidos locales (puedes dejarlos o moverlos a style.css) -->
   <style>
     #map {
       width: 100%;
@@ -39,7 +38,6 @@
 
     <div id="youtube-videos"></div>
     <div id="facebook-posts"></div>
-
     <p id="youtube-error" class="error"></p>
     <p id="facebook-error" class="error"></p>
 
@@ -60,8 +58,30 @@
     <button onclick="preguntarIA()">Preguntar</button>
     <p id="respuesta"></p>
 
+
+    <!-- ===================== -->
+    <!-- REPRODUCTOR PRINCIPAL -->
+    <!-- ===================== -->
+    <h2>Reproductor</h2>
+
+    <div class="player">
+      <div class="player-wrap">
+        <video id="main-video" controls playsinline preload="metadata" src=""></video>
+
+        <div class="player-overlay">
+          <span id="main-filename">Selecciona un video…</span>
+        </div>
+      </div>
+
+      <div class="player-meta">
+        <div id="main-extra"></div>
+      </div>
+    </div>
+
+
     <!-- STREAMING -->
     <h2>Mis Videos (Streaming)</h2>
+
     <form id="uploadForm" enctype="multipart/form-data">
       <label>Subir video MP4/WEBM/OGG:</label>
       <input type="file" id="video" name="video" accept="video/mp4,video/webm,video/ogg" required />
@@ -76,7 +96,7 @@
     <div id="videos-grid"></div>
   </div>
 
-  <!-- JS de la app -->
+  <!-- JS -->
   <script src="script.js"></script>
 
   <!-- Google Maps -->
@@ -90,5 +110,6 @@
   <script async
     src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAFOwFuxoNRk3NDmSTeui88vUY1nCnLTFI&callback=initMap">
   </script>
+
 </body>
 </html>

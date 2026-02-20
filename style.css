@@ -27,16 +27,16 @@ body {
   margin: 40px auto;
   padding: 35px;
   border-radius: 18px;
-  border: 2px solid #5e0b18; /* rojo vino oscuro */
+  border: 2px solid #5e0a18;
   box-shadow: 0 10px 25px rgba(0,0,0,0.25);
 }
 
 /* TÍTULOS */
 h1, h2 {
   text-align: center;
-  color: #5e0b18;
+  color: #5e0a18;
   font-weight: 700;
-  letter-spacing: 0.3px;
+  letter-spacing: .3px;
   margin-top: 8px;
 }
 
@@ -45,7 +45,7 @@ button {
   padding: 12px 14px;
   border: none;
   border-radius: 10px;
-  background-color: #7a1026; /* rojo vino */
+  background-color: #7a1026;
   color: #fff;
   font-size: 16px;
   cursor: pointer;
@@ -70,7 +70,7 @@ input[type="file"] {
   color: #3b0c13;
 }
 
-/* CAJAS DE RESULTADO */
+/* CAJAS */
 #respuesta, #verificacion-msg, #upload-status {
   margin-top: 10px;
   padding: 12px;
@@ -107,7 +107,57 @@ input[type="file"] {
   max-width: 300px;
 }
 
-/* === STREAMING GRID === */
+/* ======================== */
+/*    PLAYER PRINCIPAL     */
+/* ======================== */
+.player {
+  background: #000;
+  border-radius: 14px;
+  border: 2px solid #7a1026;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  margin-bottom: 18px;
+}
+
+.player-wrap {
+  position: relative;
+  background: #000;
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  overflow: hidden;
+}
+
+#main-video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+
+/* Overlay título principal */
+.player-overlay {
+  position: absolute;
+  left: 0; top: 0; right: 0;
+  padding: 10px 12px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.65), rgba(0,0,0,0));
+  color: #fff;
+  pointer-events: none;
+}
+#main-filename {
+  font-weight: 700;
+  text-shadow: 0 2px 6px rgba(0,0,0,.6);
+}
+
+.player-meta {
+  background: #111;
+  color: #ddd;
+  padding: 10px 12px 12px;
+  font-size: 13px;
+}
+
+/* ======================== */
+/*    MINIATURAS GRID      */
+/* ======================== */
 #videos-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -115,21 +165,20 @@ input[type="file"] {
   margin-top: 12px;
 }
 
-/* Tarjeta */
 .video-card {
   background: #fff;
   border-radius: 12px;
-  border-left: 5px solid #7a1026; /* rojo vino */
+  border-left: 5px solid #7a1026;
   box-shadow: 0 6px 16px rgba(0,0,0,0.12);
   overflow: hidden;
   transition: transform .15s ease, box-shadow .15s ease;
+  cursor: pointer;
 }
 .video-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 10px 24px rgba(0,0,0,0.18);
 }
 
-/* Contenedor del video */
 .video-wrap {
   position: relative;
   background: #000;
@@ -137,14 +186,13 @@ input[type="file"] {
   overflow: hidden;
 }
 
-/* Video */
 .hover-video {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-/* Overlay inferior con nombre */
+/* Overlay nombre miniatura */
 .video-overlay {
   position: absolute;
   left: 0; right: 0; bottom: 0;
@@ -160,6 +208,7 @@ input[type="file"] {
   opacity: 1;
   transform: translateY(0);
 }
+
 .video-filename {
   display: inline-block;
   max-width: 100%;
@@ -169,7 +218,7 @@ input[type="file"] {
   font-weight: 600;
 }
 
-/* Botón play “YouTube-like” (aparece cuando no está en hover o en móviles) */
+/* Botón play tenue */
 .play-badge {
   position: absolute;
   inset: 0;
@@ -186,10 +235,9 @@ input[type="file"] {
   filter: drop-shadow(0 4px 12px rgba(0,0,0,.45));
 }
 .video-card:hover .play-badge {
-  opacity: .15; /* tenue para que se intuya el play */
+  opacity: .15;
 }
 
-/* Meta inferior */
 .video-meta {
   padding: 10px 12px 12px;
   font-size: 12px;
