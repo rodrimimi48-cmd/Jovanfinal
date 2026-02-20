@@ -28,11 +28,7 @@ function initMap() {
       center: ubicacion,
     });
 
-    new google.maps.Marker({
-      position: ubicacion,
-      map: map,
-    });
-
+    new google.maps.Marker({ position: ubicacion, map });
   } catch (error) {
     document.getElementById("map-error").innerText =
       "Error cargando Google Maps: " + error.message;
@@ -159,11 +155,10 @@ function formatBytes(bytes){
   return `${v.toFixed(v < 10 && i > 1 ? 1 : 0)} ${u[i]}`;
 }
 
-/** Coloca un video en el reproductor principal */
 function setFeatured(videoObj){
-  const mainVideo = document.getElementById('main-video');
+  const mainVideo    = document.getElementById('main-video');
   const mainFilename = document.getElementById('main-filename');
-  const mainExtra = document.getElementById('main-extra');
+  const mainExtra    = document.getElementById('main-extra');
   if (!mainVideo) return;
 
   // Pausa y asigna nueva fuente
@@ -171,15 +166,20 @@ function setFeatured(videoObj){
   mainVideo.src = videoObj?.url || '';
   mainVideo.currentTime = 0;
 
+  // Reproduce automáticamente al cambiar (si el navegador lo permite)
+  mainVideo.play().catch(()=>{});
+
   // Metadata visible
-  const name = getFileNameFromKey(videoObj?.key || '');
+  const name   = getFileNameFromKey(videoObj?.key || '');
+  const size   = formatBytes(videoObj?.size);
+  const fecha  = videoObj?.lastModified ? new Date(videoObj.lastModified).toLocaleString() : '';
   mainFilename.textContent = name || 'Video';
-  const sizeTxt = formatBytes(videoObj?.size);
-  const dateTxt = videoObj?.lastModified ? new Date(videoObj.lastModified).toLocaleString() : '';
-  mainExtra.textContent = `${sizeTxt ? `Tamaño: ${sizeTxt} · ` : ''}${dateTxt ? `Modificado: ${dateTxt}` : ''}`;
+  mainExtra.textContent    = `${size ? `Tamaño: ${size} · ` : ''}${fecha ? `Modificado: ${fecha}` : ''}`;
+
+  // Scroll suave al player (mejor UX en móvil)
+  document.querySelector('.player')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-/** Construye tarjetas con hover‑preview y click -> ver en grande */
 async function loadVideos() {
   const grid = document.getElementById("videos-grid");
   if (!grid) return;
@@ -198,7 +198,7 @@ async function loadVideos() {
       return;
     }
 
-    // Coloca el primero como “featured” al cargar
+    // El servidor ya los ordena (más recientes primero). Tomamos el 1° como featured
     setFeatured(videos[0]);
 
     videos.forEach((v) => {
@@ -209,7 +209,7 @@ async function loadVideos() {
       card.style.maxWidth = "360px";
       card.title = v.key; // tooltip con la key completa
 
-      // 🔴 MUY IMPORTANTE: el <video> de miniatura debe tener src
+      // Miniatura con src correcto
       card.innerHTML = `
         <div class="video-wrap">
           <video class="hover-video" muted playsinline preload="metadata" src="${v.url}"></video>
@@ -232,7 +232,7 @@ async function loadVideos() {
         </div>
       `;
 
-      // Hover preview (autoplay silencioso al pasar el cursor)
+      // Hover preview
       const thumb = card.querySelector(".hover-video");
       if (thumb) {
         card.addEventListener("mouseenter", () => {
@@ -246,17 +246,15 @@ async function loadVideos() {
         });
       }
 
-      // Click -> envía el video al reproductor grande
+      // Click -> ver en grande
       card.addEventListener("click", async () => {
-        // Intenta cargarlo
         setFeatured(v);
 
-        // (Opcional) Verificación rápida por si la URL ya expiró: hace una HEAD y si falla, refresca
+        // Si la URL expiró, recargamos la lista y re‑seleccionamos
         try {
           const head = await fetch(v.url, { method: 'HEAD' });
           if (!head.ok) throw new Error(String(head.status));
         } catch {
-          // Refresca lista para regenerar URLs prefirmadas
           await loadVideos();
         }
       });
@@ -269,12 +267,11 @@ async function loadVideos() {
   }
 }
 
-/** Subida de archivos al backend (que guarda en R2) */
 async function handleUpload(e) {
   e.preventDefault();
   const status = document.getElementById("upload-status");
-  const input = document.getElementById("video");
-  const file = input?.files?.[0];
+  const input  = document.getElementById("video");
+  const file   = input?.files?.[0];
   if (!file) return;
 
   status.textContent = "Subiendo...";
@@ -297,18 +294,41 @@ async function handleUpload(e) {
   }
 }
 
-/** Inicialización */
-document.addEventListener("DOMContentLoaded", () => {
-  document.getElementById("uploadForm")?.addEventListener("submit", handleUpload);
-  document.getElementById("refreshBtn")?.addEventListener("click", loadVideos);
-  loadVideos(); // carga inicial
-});
+//////////////////////
+// PAGOS (Stripe Checkout)
+//////////////////////
+async function pagar() {
+  try {
+    const res = await fetch("/crear-pago", { method: "POST" });
+    const data = await res.json();
+    if (data?.url) {
+      window.location.href = data.url;
+    } else {
+      alert("No se pudo iniciar el pago");
+    }
+  } catch (e) {
+    alert("Error al iniciar pago: " + e.message);
+  }
+}
 
 //////////////////////
 // INIT
 //////////////////////
 document.addEventListener("DOMContentLoaded", () => {
+  // Upload/lista
   document.getElementById("uploadForm")?.addEventListener("submit", handleUpload);
   document.getElementById("refreshBtn")?.addEventListener("click", loadVideos);
+
+  // Atajos player: barra espaciadora play/pause
+  const mainVideo = document.getElementById("main-video");
+  document.addEventListener("keydown", (e) => {
+    if (!mainVideo) return;
+    if (e.code === "Space") {
+      e.preventDefault();
+      if (mainVideo.paused) mainVideo.play().catch(()=>{});
+      else mainVideo.pause();
+    }
+  });
+
   loadVideos(); // carga inicial
 });
