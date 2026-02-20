@@ -20,6 +20,7 @@
   },
   "homepage": "https://github.com/rodrimimi48-cmd/Jovanfinal#readme",
   "dependencies": {
+    "@huggingface/inference": "^4.13.12",
     "axios": "^1.13.5",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",

@@ -50,7 +50,8 @@ app.post("/chat", async (req, res) => {
     }
 
     const response = await axios.post(
-      "https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-Instruct-v0.2",
+      // 🔄 CAMBIO: usar Inference API estable en lugar del router
+      "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2",
       {
         inputs: `<s>[INST] Eres un experto en dinosaurios. Responde claro y profesional. 
 Pregunta: ${pregunta} [/INST]`,
@@ -58,12 +59,16 @@ Pregunta: ${pregunta} [/INST]`,
           max_new_tokens: 250,
           temperature: 0.7,
           return_full_text: false
-        }
+        },
+        // 🧊 Evita fallos si el modelo está "cold"
+        options: { wait_for_model: true }
       },
       {
         headers: {
           Authorization: `Bearer ${process.env.HF_API_KEY}`,
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          // ✅ Aceptar JSON explícitamente
+          "Accept": "application/json"
         },
         timeout: 60000
       }
