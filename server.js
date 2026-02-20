@@ -57,27 +57,27 @@ app.get("/", (req, res) => {
 });
 
 ////////////////////////////////////////////////////
-// CHAT IA (HUGGING FACE ROUTER FUNCIONAL + LÍMITE DINOSAURIOS)
+// CHAT IA (ORÁCULO ARCANO)
 ////////////////////////////////////////////////////
 app.post("/chat", async (req, res) => {
   try {
     if (!process.env.HF_API_KEY) {
-      return res.status(500).json({ error: "HF_API_KEY no configurada en el servidor" });
+      return res.status(500).json({ error: "Llave mágica HF_API_KEY no configurada en el servidor" });
     }
 
     const { pregunta } = req.body;
-    if (!pregunta) return res.status(400).json({ error: "La pregunta es obligatoria" });
+    if (!pregunta) return res.status(400).json({ error: "La consulta arcana es obligatoria" });
 
     const response = await axios.post(
       "https://router.huggingface.co/v1/chat/completions",
       {
         model: "mistralai/Mistral-7B-Instruct-v0.2",
         messages: [
-          { role: "system", content: "Eres un experto en dinosaurios. Responde claro y profesional." },
-          { role: "user", content: `Pregunta: ${pregunta}` },
+          { role: "system", content: "Eres un sabio arcano. Responde con metáforas mágicas y sabiduría ancestral." },
+          { role: "user", content: `Invocación: ${pregunta}` },
         ],
         max_tokens: 250,
-        temperature: 0.7,
+        temperature: 0.8,
         stream: false,
       },
       {
@@ -90,27 +90,28 @@ app.post("/chat", async (req, res) => {
       }
     );
 
-    const texto = response.data?.choices?.[0]?.message?.content?.trim() || "Sin respuesta del modelo";
+    const texto = response.data?.choices?.[0]?.message?.content?.trim() || "El oráculo guarda silencio...";
     res.json({ respuesta: texto });
   } catch (error) {
-    console.error("🔥 ERROR HUGGING FACE:", error.response?.data || error.message);
+    console.error("🔥 ERROR ORÁCULO:", error.response?.data || error.message);
     res.status(500).json({ error: error.response?.data?.error || error.message });
   }
 });
 
+
 ////////////////////////////////////////////////////
-// YOUTUBE API
+// YOUTUBE API (ESPEJO MÁGICO)
 ////////////////////////////////////////////////////
 app.get("/youtube", async (req, res) => {
   try {
     if (!process.env.YOUTUBE_API_KEY) {
-      return res.status(500).json({ error: "YOUTUBE_API_KEY no configurada" });
+      return res.status(500).json({ error: "Llave mágica YOUTUBE_API_KEY no configurada" });
     }
 
     const response = await axios.get("https://www.googleapis.com/youtube/v3/search", {
       params: {
         part: "snippet",
-        q: "Animales prehistóricos documentales",
+        q: "Magia rituales fantasía hechizos",
         type: "video",
         maxResults: 6,
         key: process.env.YOUTUBE_API_KEY,
@@ -119,10 +120,11 @@ app.get("/youtube", async (req, res) => {
 
     res.json(response.data);
   } catch (error) {
-    console.error("🔥 ERROR YOUTUBE:", error.response?.data || error.message);
+    console.error("🔥 ERROR ESPEJO MÁGICO:", error.response?.data || error.message);
     res.status(500).json({ error: error.response?.data?.error?.message || error.message });
   }
 });
+
 
 ////////////////////////////////////////////////////
 // FACEBOOK GRAPH API
