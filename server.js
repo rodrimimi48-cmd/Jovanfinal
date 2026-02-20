@@ -103,7 +103,7 @@ app.get("/youtube", async (req, res) => {
       {
         params: {
           part: "snippet",
-          q: "dinosaurios",
+          q: "Animales prehistóricos documentales",
           type: "video",
           maxResults: 6,
           key: process.env.YOUTUBE_API_KEY
