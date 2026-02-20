@@ -31,7 +31,7 @@ app.get("/", (req, res) => {
 });
 
 ////////////////////////////////////////////////////
-// CHAT IA (HUGGING FACE)
+// CHAT IA (HUGGING FACE - NUEVO ROUTER)
 ////////////////////////////////////////////////////
 app.post("/chat", async (req, res) => {
   try {
@@ -50,9 +50,9 @@ app.post("/chat", async (req, res) => {
     }
 
     const response = await axios.post(
-      "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2",
+      "https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-Instruct-v0.2",
       {
-        inputs: `<s>[INST] Eres un experto en dinosaurios. ${pregunta} [/INST]`
+        inputs: `<s>[INST] Eres un experto en dinosaurios. Responde claro y profesional. ${pregunta} [/INST]`
       },
       {
         headers: {
@@ -62,7 +62,7 @@ app.post("/chat", async (req, res) => {
       }
     );
 
-    const texto = response.data[0]?.generated_text || "Sin respuesta";
+    const texto = response.data?.[0]?.generated_text || "Sin respuesta del modelo";
 
     res.json({
       respuesta: texto
