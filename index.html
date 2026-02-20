@@ -3,44 +3,22 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Arcanum</title>
+  <title>Ark</title>
 
   <!-- Estilos principales -->
   <link rel="stylesheet" href="style.css" />
 
   <style>
-    body {
-      background: linear-gradient(135deg, #1a0f2e, #3b1f5c);
-      color: #f5e6ff;
-      font-family: 'Cinzel', serif;
-    }
-    h1, h2 {
-      text-shadow: 0 0 10px #b084f5;
-    }
     #map {
       width: 100%;
       height: 400px;
       margin-top: 10px;
       border-radius: 10px;
-      border: 2px solid #b084f5;
     }
     .error {
       color: #ff4a4a;
       font-weight: bold;
       margin-top: 10px;
-    }
-    .magic-btn {
-      background: #6a0dad;
-      color: #fff;
-      border: none;
-      padding: 10px 15px;
-      border-radius: 8px;
-      cursor: pointer;
-      box-shadow: 0 0 10px #b084f5;
-      transition: transform 0.2s;
-    }
-    .magic-btn:hover {
-      transform: scale(1.1);
     }
   </style>
 </head>
@@ -49,13 +27,13 @@
   <div class="overlay"></div>
 
   <div class="container">
-    <h1>Arcanum</h1>
+    <h1>ARK</h1>
 
     <!-- REDES -->
-    <h2>Espejos Mágicos</h2>
+    <h2>Redes Sociales</h2>
     <div class="social-buttons">
-      <button class="magic-btn" onclick="cargarVideosYouTube()">Ver visiones en YouTube</button>
-      <button class="magic-btn" onclick="cargarPostsFacebook()">Ver pergaminos en Facebook</button>
+      <button onclick="cargarVideosYouTube()">Ver videos YouTube</button>
+      <button onclick="cargarPostsFacebook()">Ver posts Facebook</button>
     </div>
 
     <div id="youtube-videos"></div>
@@ -64,33 +42,33 @@
     <p id="facebook-error" class="error"></p>
 
     <!-- 2FA -->
-    <h2>Ritual de Doble Protección</h2>
-    <input type="text" id="codigo" placeholder="Ingresa el código arcano" />
-    <button class="magic-btn" onclick="verificarCodigo()">Invocar</button>
+    <h2>Verificación en 2 pasos</h2>
+    <input type="text" id="codigo" placeholder="Ingresa código" />
+    <button onclick="verificarCodigo()">Verificar</button>
     <p id="verificacion-msg"></p>
 
     <!-- MAPA -->
-    <h2>Mapa de Reinos</h2>
+    <h2>Mapa</h2>
     <div id="map"></div>
     <p id="map-error" class="error"></p>
 
     <!-- IA -->
-    <h2>Oráculo de Dinosaurios</h2>
-    <input type="text" id="pregunta" placeholder="Pregunta al oráculo" />
-    <button class="magic-btn" onclick="preguntarIA()">Consultar</button>
+    <h2>Chat IA sobre Dinosaurios</h2>
+    <input type="text" id="pregunta" placeholder="Pregunta sobre dinosaurios" />
+    <button onclick="preguntarIA()">Preguntar</button>
     <p id="respuesta"></p>
 
     <!-- ===================== -->
     <!-- REPRODUCTOR PRINCIPAL -->
     <!-- ===================== -->
-    <h2>Espejo de Cristal</h2>
+    <h2>Reproductor</h2>
 
     <div class="player">
       <div class="player-wrap">
         <video id="main-video" controls playsinline preload="metadata" src=""></video>
 
         <div class="player-overlay">
-          <span id="main-filename">Selecciona un hechizo visual…</span>
+          <span id="main-filename">Selecciona un video…</span>
         </div>
       </div>
 
@@ -102,26 +80,26 @@
     <!-- ===================== -->
     <!-- PAGOS (Stripe Checkout) -->
     <!-- ===================== -->
-    <h2>Apoyar el Círculo</h2>
+    <h2>Apoyar el proyecto</h2>
     <p style="text-align:center; margin: 0 0 10px;">
-      Si este grimorio te inspira, puedes ofrecer tu donación. 🔮
+      Si te gusta este proyecto, puedes apoyar con una donación. 🙌
     </p>
     <div style="display:flex; justify-content:center; margin-bottom: 20px;">
-      <button class="magic-btn" onclick="pagar()">💳 Donar 12 monedas</button>
+      <button onclick="pagar()">💳 Pagar $12 MXN</button>
     </div>
 
     <!-- STREAMING -->
-    <h2>Mis Hechizos (Streaming)</h2>
+    <h2>Mis Videos (Streaming)</h2>
 
     <form id="uploadForm" enctype="multipart/form-data">
-      <label>Invocar video MP4/WEBM/OGG:</label>
+      <label>Subir video MP4/WEBM/OGG:</label>
       <input type="file" id="video" name="video" accept="video/mp4,video/webm,video/ogg" required />
-      <button class="magic-btn" type="submit">Subir hechizo</button>
+      <button type="submit">Subir video</button>
       <p id="upload-status"></p>
     </form>
 
     <div>
-      <button id="refreshBtn" class="magic-btn" type="button">Actualizar grimorio</button>
+      <button id="refreshBtn" type="button">Actualizar lista</button>
     </div>
 
     <div id="videos-grid"></div>
@@ -134,7 +112,7 @@
   <script>
     function gm_authFailure() {
       document.getElementById("map-error").innerText =
-        "Error: Llave mágica inválida o dominio no autorizado en el mapa arcano.";
+        "Error: API Key inválida o dominio no autorizado en Google Maps.";
     }
   </script>
 
