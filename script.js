@@ -7,7 +7,7 @@ function verificarCodigo(){
   const codigo = document.getElementById("codigo").value;
   const msg = document.getElementById("verificacion-msg");
 
-  if(codigo === codigoCorrecto){
+  if (codigo === codigoCorrecto) {
     msg.innerText = "Verificación correcta ✅";
     msg.style.color = "green";
   } else {
@@ -43,7 +43,7 @@ async function preguntarIA(){
   const pregunta = document.getElementById("pregunta").value;
   const respuestaBox = document.getElementById("respuesta");
 
-  if(!pregunta) return;
+  if (!pregunta) return;
   respuestaBox.innerText = "Cargando...";
 
   try {
@@ -56,7 +56,7 @@ async function preguntarIA(){
     if (!res.ok) throw new Error(data.error || "Error desconocido");
     respuestaBox.innerText = data.respuesta;
 
-  } catch(error){
+  } catch (error) {
     respuestaBox.innerText = "Error IA: " + error.message;
   }
 }
@@ -77,13 +77,13 @@ async function cargarVideosYouTube(){
     if (!res.ok) throw new Error(data.error || "Error desconocido");
     errorBox.innerText = "";
 
-    if(!data.items || data.items.length === 0){
+    if (!data.items || data.items.length === 0) {
       errorBox.innerText = "No se encontraron videos.";
       return;
     }
 
     data.items.forEach(item => {
-      if(item.id.kind === "youtube#video"){
+      if (item.id.kind === "youtube#video") {
         contenedor.innerHTML += `
           <div class="video">
             <iframe width="300" height="170"
@@ -98,7 +98,7 @@ async function cargarVideosYouTube(){
       }
     });
 
-  } catch(err){
+  } catch (err) {
     errorBox.innerText = "Error YouTube: " + err.message;
   }
 }
@@ -113,13 +113,13 @@ async function cargarPostsFacebook(){
   contenedor.innerHTML = "";
   errorBox.innerText = "Cargando publicaciones...";
 
-  try{
+  try {
     const res = await fetch("/facebook");
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Error desconocido");
     errorBox.innerText = "";
 
-    if(!data.data || data.data.length === 0){
+    if (!data.data || data.data.length === 0) {
       errorBox.innerText = "No se encontraron publicaciones.";
       return;
     }
@@ -135,7 +135,7 @@ async function cargarPostsFacebook(){
       `;
     });
 
-  } catch(err){
+  } catch (err) {
     errorBox.innerText = "Error Facebook: " + err.message;
   }
 }
@@ -170,9 +170,9 @@ function setFeatured(videoObj){
   mainVideo.play().catch(()=>{});
 
   // Metadata visible
-  const name   = getFileNameFromKey(videoObj?.key || '');
-  const size   = formatBytes(videoObj?.size);
-  const fecha  = videoObj?.lastModified ? new Date(videoObj.lastModified).toLocaleString() : '';
+  const name  = getFileNameFromKey(videoObj?.key || '');
+  const size  = formatBytes(videoObj?.size);
+  const fecha = videoObj?.lastModified ? new Date(videoObj.lastModified).toLocaleString() : '';
   mainFilename.textContent = name || 'Video';
   mainExtra.textContent    = `${size ? `Tamaño: ${size} · ` : ''}${fecha ? `Modificado: ${fecha}` : ''}`;
 
@@ -180,7 +180,11 @@ function setFeatured(videoObj){
   document.querySelector('.player')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-async function loadVideos() {
+/**
+ * Carga la lista de videos.
+ * @param {string} [keepKey] - Si se indica, mantiene seleccionado ese video como "featured".
+ */
+async function loadVideos(keepKey) {
   const grid = document.getElementById("videos-grid");
   if (!grid) return;
 
@@ -198,8 +202,13 @@ async function loadVideos() {
       return;
     }
 
-    // El servidor ya los ordena (más recientes primero). Tomamos el 1° como featured
-    setFeatured(videos[0]);
+    // ✅ Mantener selección si llega keepKey; si no, usar el primero
+    let featured = videos[0];
+    if (keepKey) {
+      const found = videos.find(v => v.key === keepKey);
+      if (found) featured = found;
+    }
+    setFeatured(featured);
 
     videos.forEach((v) => {
       const fileName = getFileNameFromKey(v.key);
@@ -246,16 +255,14 @@ async function loadVideos() {
         });
       }
 
-      // Click -> ver en grande
+      // Click -> ver en grande (y si expira la URL, recarga manteniendo selección)
       card.addEventListener("click", async () => {
         setFeatured(v);
-
-        // Si la URL expiró, recargamos la lista y re‑seleccionamos
         try {
           const head = await fetch(v.url, { method: 'HEAD' });
           if (!head.ok) throw new Error(String(head.status));
         } catch {
-          await loadVideos();
+          await loadVideos(v.key); // 👈 preserva el seleccionado
         }
       });
 
@@ -285,7 +292,7 @@ async function handleUpload(e) {
     if (!r.ok) throw new Error(data.error || "Error de subida");
 
     status.textContent = "✓ Subido";
-    await loadVideos();
+    await loadVideos(); // primera carga post-subida: pondrá el más reciente (tu server ordena)
   } catch (err) {
     status.textContent = "Error: " + err.message;
   } finally {
@@ -317,7 +324,7 @@ async function pagar() {
 document.addEventListener("DOMContentLoaded", () => {
   // Upload/lista
   document.getElementById("uploadForm")?.addEventListener("submit", handleUpload);
-  document.getElementById("refreshBtn")?.addEventListener("click", loadVideos);
+  document.getElementById("refreshBtn")?.addEventListener("click", () => loadVideos());
 
   // Atajos player: barra espaciadora play/pause
   const mainVideo = document.getElementById("main-video");
@@ -330,5 +337,5 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  loadVideos(); // carga inicial
+  loadVideos(); // primera carga: destaca el primero
 });
