@@ -15,18 +15,25 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
 ////////////////////////////////////////////////////
-// VALIDACIÓN DE KEYS
+// LOG DE VARIABLES (MUY IMPORTANTE EN RENDER)
 ////////////////////////////////////////////////////
+console.log("===== VARIABLES DE ENTORNO =====");
 console.log("OPENAI:", process.env.OPENAI_API_KEY ? "✅ Cargada" : "❌ No cargada");
 console.log("YOUTUBE:", process.env.YOUTUBE_API_KEY ? "✅ Cargada" : "❌ No cargada");
-console.log("FACEBOOK:", process.env.FB_ACCESS_TOKEN ? "✅ Cargada" : "❌ No cargada");
+console.log("FB_PAGE_ID:", process.env.FB_PAGE_ID ? "✅ Cargada" : "❌ No cargada");
+console.log("FB_ACCESS_TOKEN:", process.env.FB_ACCESS_TOKEN ? "✅ Cargada" : "❌ No cargada");
+console.log("=================================");
 
 ////////////////////////////////////////////////////
-// INICIALIZAR OPENAI
+// INICIALIZAR OPENAI SOLO SI EXISTE
 ////////////////////////////////////////////////////
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+let openai = null;
+
+if (process.env.OPENAI_API_KEY) {
+  openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY
+  });
+}
 
 ////////////////////////////////////////////////////
 // RUTA PRINCIPAL
@@ -36,18 +43,22 @@ app.get("/", (req, res) => {
 });
 
 ////////////////////////////////////////////////////
-// CHAT IA DINOSAURIOS
+// CHAT IA
 ////////////////////////////////////////////////////
 app.post("/chat", async (req, res) => {
   try {
+    if (!openai) {
+      return res.status(500).json({
+        error: "OPENAI_API_KEY no configurada en el servidor"
+      });
+    }
+
     const { pregunta } = req.body;
 
     if (!pregunta) {
-      return res.status(400).json({ error: "La pregunta es obligatoria" });
-    }
-
-    if (!process.env.OPENAI_API_KEY) {
-      return res.status(500).json({ error: "API Key de OpenAI no definida" });
+      return res.status(400).json({
+        error: "La pregunta es obligatoria"
+      });
     }
 
     const completion = await openai.chat.completions.create({
@@ -55,7 +66,7 @@ app.post("/chat", async (req, res) => {
       messages: [
         {
           role: "system",
-          content: "Eres un experto en dinosaurios. Solo respondes preguntas sobre dinosaurios."
+          content: "Eres un experto en dinosaurios."
         },
         { role: "user", content: pregunta }
       ],
@@ -67,8 +78,11 @@ app.post("/chat", async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Error IA:", error.response?.data || error.message);
-    res.status(500).json({ error: "Error en OpenAI" });
+    console.error("🔥 ERROR OPENAI:", error.response?.data || error.message);
+
+    res.status(500).json({
+      error: error.response?.data?.error?.message || error.message
+    });
   }
 });
 
@@ -78,7 +92,9 @@ app.post("/chat", async (req, res) => {
 app.get("/youtube", async (req, res) => {
   try {
     if (!process.env.YOUTUBE_API_KEY) {
-      return res.status(500).json({ error: "YouTube API Key no definida" });
+      return res.status(500).json({
+        error: "YOUTUBE_API_KEY no configurada"
+      });
     }
 
     const response = await axios.get(
@@ -97,8 +113,11 @@ app.get("/youtube", async (req, res) => {
     res.json(response.data);
 
   } catch (error) {
-    console.error("Error YouTube:", error.response?.data || error.message);
-    res.status(500).json({ error: "Error en YouTube API" });
+    console.error("🔥 ERROR YOUTUBE:", error.response?.data || error.message);
+
+    res.status(500).json({
+      error: error.response?.data?.error?.message || error.message
+    });
   }
 });
 
@@ -108,7 +127,9 @@ app.get("/youtube", async (req, res) => {
 app.get("/facebook", async (req, res) => {
   try {
     if (!process.env.FB_PAGE_ID || !process.env.FB_ACCESS_TOKEN) {
-      return res.status(500).json({ error: "Credenciales Facebook no definidas" });
+      return res.status(500).json({
+        error: "Credenciales de Facebook no configuradas"
+      });
     }
 
     const response = await axios.get(
@@ -124,8 +145,11 @@ app.get("/facebook", async (req, res) => {
     res.json(response.data);
 
   } catch (error) {
-    console.error("Error Facebook:", error.response?.data || error.message);
-    res.status(500).json({ error: "Error en Facebook Graph API" });
+    console.error("🔥 ERROR FACEBOOK:", error.response?.data || error.message);
+
+    res.status(500).json({
+      error: error.response?.data?.error?.message || error.message
+    });
   }
 });
 
@@ -135,5 +159,5 @@ app.get("/facebook", async (req, res) => {
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
+  console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
 });

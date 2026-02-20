@@ -13,6 +13,12 @@
       margin-top: 10px;
       border-radius: 10px;
     }
+
+    .error {
+      color: red;
+      font-weight: bold;
+      margin-top: 10px;
+    }
   </style>
 </head>
 
@@ -32,6 +38,9 @@
     <div id="youtube-videos"></div>
     <div id="facebook-posts"></div>
 
+    <p id="youtube-error" class="error"></p>
+    <p id="facebook-error" class="error"></p>
+
     <!-- 2FA -->
     <h2>Verificación en 2 pasos</h2>
     <input type="text" id="codigo" placeholder="Ingresa código">
@@ -39,8 +48,9 @@
     <p id="verificacion-msg"></p>
 
     <!-- MAPA -->
-    <h2>Mapa (Ciudad de México)</h2>
+    <h2>Mapa</h2>
     <div id="map"></div>
+    <p id="map-error" class="error"></p>
 
     <!-- IA -->
     <h2>Chat IA sobre Dinosaurios</h2>
@@ -49,20 +59,18 @@
     <p id="respuesta"></p>
   </div>
 
-  <!-- Script principal -->
   <script src="script.js"></script>
 
-  <!-- Google Maps API -->
+  <!-- Google Maps -->
   <script>
-    function cargarMapa() {
-      const script = document.createElement("script");
-      script.src = "https://maps.googleapis.com/maps/api/js?key=TU_GOOGLE_MAPS_KEY&callback=initMap";
-      script.async = true;
-      script.defer = true;
-      document.head.appendChild(script);
+    function gm_authFailure() {
+      document.getElementById("map-error").innerText =
+        "Error: API Key inválida o dominio no autorizado en Google Maps.";
     }
+  </script>
 
-    window.onload = cargarMapa;
+  <script async
+    src="https://maps.googleapis.com/maps/api/js?key=TU_MAPS_KEY&callback=initMap">
   </script>
 </body>
 </html>
