@@ -47,6 +47,8 @@ console.log("S3_ENDPOINT:", process.env.S3_ENDPOINT ? "✅ Cargada" : "❌ No ca
 console.log("S3_FORCE_PATH_STYLE:", process.env.S3_FORCE_PATH_STYLE || "❌ Vacía");
 console.log("STRIPE_SECRET_KEY:", process.env.STRIPE_SECRET_KEY ? "✅ Cargada" : "❌ No cargada");
 console.log("BASE_URL:", process.env.BASE_URL || "❌ Vacía");
+console.log("CHAT_TOPIC:", process.env.CHAT_TOPIC || "❌ Vacía (usa 'dinosaurios' por defecto)");
+console.log("CHAT_TOPIC_KEYWORDS:", process.env.CHAT_TOPIC_KEYWORDS || "❌ Vacía");
 console.log("=================================");
 
 ////////////////////////////////////////////////////
@@ -57,7 +59,34 @@ app.get("/", (req, res) => {
 });
 
 ////////////////////////////////////////////////////
-// CHAT IA (HUGGING FACE ROUTER FUNCIONAL + LÍMITE DINOSAURIOS)
+// === UTILIDADES: LÍMITE DE TEMA PARA CHAT ===
+////////////////////////////////////////////////////
+function parseKeywords(envValue) {
+  return (envValue || "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+const DEFAULT_TOPIC = process.env.CHAT_TOPIC || "dinosaurios";
+const DEFAULT_KEYWORDS = parseKeywords(
+  process.env.CHAT_TOPIC_KEYWORDS ||
+    "dinosaurio,triásico,jurásico,cretácico,velociraptor,tyrannosaurus,rex,paleontología,fósil,prehistoria"
+);
+
+// Filtro básico por keywords para evitar llamadas off-topic
+function isOnTopicBasic(question, keywords = DEFAULT_KEYWORDS) {
+  if (!question) return false;
+  const q = question.toLowerCase();
+  if (!keywords || keywords.length === 0) {
+    // Si no configuras keywords, no bloqueamos por este filtro
+    return true;
+  }
+  return keywords.some((kw) => q.includes(kw));
+}
+
+////////////////////////////////////////////////////
+// CHAT IA (HUGGING FACE) — CON LÍMITE DE TEMA
 ////////////////////////////////////////////////////
 app.post("/chat", async (req, res) => {
   try {
@@ -65,16 +94,49 @@ app.post("/chat", async (req, res) => {
       return res.status(500).json({ error: "HF_API_KEY no configurada en el servidor" });
     }
 
-    const { pregunta } = req.body;
-    if (!pregunta) return res.status(400).json({ error: "La pregunta es obligatoria" });
+    const { pregunta, topic: topicFromBody, keywords: keywordsFromBody } = req.body || {};
+    const topicFromQuery = req.query?.topic;
+
+    // Tema permitido (puede venir por body, query o .env)
+    const allowedTopic = String(
+      topicFromBody || topicFromQuery || process.env.CHAT_TOPIC || "dinosaurios"
+    );
+
+    // Keywords (si vienen por body como array, se usan; si no, las de .env)
+    const topicKeywords = Array.isArray(keywordsFromBody)
+      ? keywordsFromBody.map((s) => String(s).toLowerCase())
+      : DEFAULT_KEYWORDS;
+
+    if (!pregunta) {
+      return res.status(400).json({ error: "La pregunta es obligatoria" });
+    }
+
+    // 1) Validación previa para ahorrar tokens si es off-topic
+    const onTopic = isOnTopicBasic(pregunta, topicKeywords);
+    if (!onTopic) {
+      return res.status(400).json({
+        error: `La pregunta no está dentro del tema permitido: "${allowedTopic}".`,
+        detalle: "Reformula tu pregunta para que esté relacionada con el tema.",
+        tema: allowedTopic,
+      });
+    }
+
+    // 2) Prompt del sistema duro: el modelo también debe negarse si detecta off-topic sutil
+    const systemPrompt = [
+      `Eres un experto en ${allowedTopic}.`,
+      `Reglas estrictas:`,
+      `1) Solo puedes hablar de temas estrictamente relacionados con "${allowedTopic}".`,
+      `2) Si la pregunta no está relacionada, responde con una breve negativa y sugiere cómo reformularla para que encaje en el tema.`,
+      `3) Sé claro, conciso y profesional.`,
+    ].join(" ");
 
     const response = await axios.post(
       "https://router.huggingface.co/v1/chat/completions",
       {
         model: "mistralai/Mistral-7B-Instruct-v0.2",
         messages: [
-          { role: "system", content: "Eres un experto en dinosaurios. Responde claro y profesional." },
-          { role: "user", content: `Pregunta: ${pregunta}` },
+          { role: "system", content: systemPrompt },
+          { role: "user", content: `Pregunta del usuario (tema: ${allowedTopic}): ${pregunta}` },
         ],
         max_tokens: 250,
         temperature: 0.7,
@@ -91,7 +153,7 @@ app.post("/chat", async (req, res) => {
     );
 
     const texto = response.data?.choices?.[0]?.message?.content?.trim() || "Sin respuesta del modelo";
-    res.json({ respuesta: texto });
+    res.json({ respuesta: texto, tema: allowedTopic });
   } catch (error) {
     console.error("🔥 ERROR HUGGING FACE:", error.response?.data || error.message);
     res.status(500).json({ error: error.response?.data?.error || error.message });
