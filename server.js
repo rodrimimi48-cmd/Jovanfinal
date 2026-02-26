@@ -28,10 +28,20 @@ const stripe = process.env.STRIPE_SECRET_KEY
 const { sendReceiptEmail } = require("./mailer");
 
 const app = express();
+app.set("trust proxy", 1); // Render/Proxies
 
-////////////////////////////////////////////////////
-// LOG DE VARIABLES (después de dotenv.config)
-////////////////////////////////////////////////////
+// ================================
+// Utils
+// ================================
+function getBaseUrl(req) {
+  const proto = (req.headers["x-forwarded-proto"] || req.protocol || "http").split(",")[0].trim();
+  const host = (req.headers["x-forwarded-host"] || req.get("host") || "").split(",")[0].trim();
+  return `${proto}://${host}`;
+}
+
+// ================================
+// LOG DE VARIABLES
+// ================================
 console.log("===== VARIABLES DE ENTORNO =====");
 console.log("HF:", process.env.HF_API_KEY ? "✅ Cargada" : "❌ No cargada");
 console.log("YOUTUBE:", process.env.YOUTUBE_API_KEY ? "✅ Cargada" : "❌ No cargada");
@@ -43,17 +53,34 @@ console.log("S3_ENDPOINT:", process.env.S3_ENDPOINT ? "✅ Cargada" : "❌ No ca
 console.log("S3_FORCE_PATH_STYLE:", process.env.S3_FORCE_PATH_STYLE || "❌ Vacía");
 console.log("STRIPE_SECRET_KEY:", process.env.STRIPE_SECRET_KEY ? "✅ Cargada" : "❌ No cargada");
 console.log("STRIPE_WEBHOOK_SECRET:", process.env.STRIPE_WEBHOOK_SECRET ? "✅ Cargada" : "❌ No cargada");
-console.log("BASE_URL:", process.env.BASE_URL || "❌ Vacía");
+console.log("BASE_URL:", process.env.BASE_URL || "❌ Vacía (se autodetectará)");
 console.log("SENDGRID_API_KEY:", process.env.SENDGRID_API_KEY ? "✅ Cargada" : "❌ No cargada");
 console.log("MAIL_FROM:", process.env.MAIL_FROM ? "✅ Cargada" : "❌ No cargada");
 console.log("SELLER_EMAIL:", process.env.SELLER_EMAIL ? "✅ Cargada" : "—");
 console.log("=================================");
 
-////////////////////////////////////////////////////
-// MIDDLEWARES (orden importante para webhook)
-////////////////////////////////////////////////////
-app.use(cors());
-app.use(express.static(path.join(__dirname))); // sirve index.html y assets
+// ================================
+// MIDDLEWARES (orden IMPORTANTE)
+// ================================
+
+// CORS amplio (por si pruebas frontend en otro origen)
+app.use(
+  cors({
+    origin: true, // refleja el Origin que venga
+    methods: ["GET", "POST", "HEAD", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Stripe-Signature"],
+    credentials: false,
+  })
+);
+
+// Estáticos (sirve index.html, script.js, style.css, imágenes, etc.)
+app.use(express.static(path.join(__dirname)));
+
+// Logging básico de requests
+app.use((req, _res, next) => {
+  console.log(`➡️  ${req.method} ${req.url}`);
+  next();
+});
 
 // === WEBHOOK DE STRIPE (raw body) ===
 // ⚠️ Debe ir ANTES de app.use(express.json())
@@ -96,6 +123,7 @@ app.post(
         // Enviar correo (no bloquear respuesta a Stripe por errores de email)
         try {
           await sendReceiptEmail({ session, lineItems: lineItems.data });
+          console.log(`📧 Ticket enviado a ${session?.customer_details?.email || "[sin email]"}`);
         } catch (mailErr) {
           console.error("Error enviando ticket:", mailErr.message);
         }
@@ -114,16 +142,29 @@ app.post(
 // Ahora sí, parseo JSON para el resto de rutas
 app.use(express.json());
 
-////////////////////////////////////////////////////
+// ================================
+// HEALTH
+// ================================
+app.get("/health", (req, res) => {
+  const detectedBase = getBaseUrl(req);
+  res.json({
+    ok: true,
+    base_url_env: process.env.BASE_URL || null,
+    base_url_detected: detectedBase,
+    stripe: !!stripe,
+  });
+});
+
+// ================================
 // RUTA PRINCIPAL
-////////////////////////////////////////////////////
+// ================================
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
-////////////////////////////////////////////////////
+// ================================
 // CHAT IA (Hugging Face)
-////////////////////////////////////////////////////
+// ================================
 app.post("/chat", async (req, res) => {
   try {
     if (!process.env.HF_API_KEY) {
@@ -163,9 +204,9 @@ app.post("/chat", async (req, res) => {
   }
 });
 
-////////////////////////////////////////////////////
+// ================================
 // YOUTUBE API
-////////////////////////////////////////////////////
+// ================================
 app.get("/youtube", async (req, res) => {
   try {
     if (!process.env.YOUTUBE_API_KEY) {
@@ -189,9 +230,9 @@ app.get("/youtube", async (req, res) => {
   }
 });
 
-////////////////////////////////////////////////////
+// ================================
 // FACEBOOK GRAPH API
-////////////////////////////////////////////////////
+// ================================
 app.get("/facebook", async (req, res) => {
   try {
     if (!process.env.FB_PAGE_ID || !process.env.FB_ACCESS_TOKEN) {
@@ -215,9 +256,9 @@ app.get("/facebook", async (req, res) => {
   }
 });
 
-////////////////////////////////////////////////////
-// === STREAMING APP === S3 CLIENT (Cloudflare R2)
-////////////////////////////////////////////////////
+// ================================
+// === STREAMING APP — S3 CLIENT (Cloudflare R2)
+ // ================================
 const s3 = new S3Client({
   region: process.env.S3_REGION || "auto",
   endpoint: process.env.S3_ENDPOINT || undefined,
@@ -250,9 +291,9 @@ const upload = multer({
   },
 });
 
-////////////////////////////////////////////////////
+// ================================
 // SUBIR VIDEO (stream a R2)
-////////////////////////////////////////////////////
+// ================================
 app.post("/upload", upload.single("video"), async (req, res) => {
   const tempPath = req.file?.path;
   try {
@@ -280,9 +321,9 @@ app.post("/upload", upload.single("video"), async (req, res) => {
   }
 });
 
-////////////////////////////////////////////////////
+// ================================
 // LISTAR VIDEOS + URLS prefirmadas (1 hora)
-////////////////////////////////////////////////////
+// ================================
 app.get("/videos", async (req, res) => {
   try {
     if (!process.env.S3_BUCKET) return res.status(500).json({ error: "S3_BUCKET no configurado" });
@@ -319,14 +360,25 @@ app.get("/videos", async (req, res) => {
   }
 });
 
-////////////////////////////////////////////////////
+// ================================
 // PAGOS — Stripe Checkout
-////////////////////////////////////////////////////
+// ================================
 app.post("/crear-pago", async (req, res) => {
   try {
-    if (!stripe || !process.env.BASE_URL) {
-      return res.status(500).json({ error: "Stripe no configurado (STRIPE_SECRET_KEY/BASE_URL)" });
+    if (!stripe) {
+      return res.status(500).json({ error: "Stripe no configurado (STRIPE_SECRET_KEY)" });
     }
+
+    // BASE_URL: usa .env o auto-detecta desde la request
+    const baseUrl = (process.env.BASE_URL && process.env.BASE_URL.trim().length > 0)
+      ? process.env.BASE_URL
+      : getBaseUrl(req);
+
+    // Validación rápida de protocolo/host
+    if (!/^https?:\/\//i.test(baseUrl)) {
+      console.warn("⚠️ BASE_URL inválida o vacía. Detectada:", baseUrl);
+    }
+    console.log("🧭 BASE_URL usada para Stripe:", baseUrl);
 
     // Ajustado a $12.00 MXN
     const session = await stripe.checkout.sessions.create({
@@ -341,20 +393,21 @@ app.post("/crear-pago", async (req, res) => {
           quantity: 1,
         },
       ],
-      success_url: `${process.env.BASE_URL}/?pago=ok`,
-      cancel_url: `${process.env.BASE_URL}/?pago=cancelado`,
+      success_url: `${baseUrl}/?pago=ok`,
+      cancel_url: `${baseUrl}/?pago=cancelado`,
     });
 
+    console.log("✅ Stripe session.url:", session.url);
     return res.json({ url: session.url });
   } catch (err) {
-    console.error("Error Stripe:", err.message);
-    return res.status(500).json({ error: "No se pudo crear el pago" });
+    console.error("🔥 Error Stripe /crear-pago:", err?.message || err);
+    return res.status(500).json({ error: err?.message || "No se pudo crear el pago" });
   }
 });
 
-////////////////////////////////////////////////////
+// ================================
 // INICIAR SERVIDOR
-////////////////////////////////////////////////////
+// ================================
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en puerto ${PORT}`);

@@ -1,9 +1,14 @@
 //////////////////////
+// BASE DEL API
+//////////////////////
+const API_BASE = window.location.origin; // mismo host/puerto del server
+
+//////////////////////
 // 2FA SIMPLE
 //////////////////////
 const codigoCorrecto = "123456";
 
-function verificarCodigo(){
+function verificarCodigo() {
   const codigo = document.getElementById("codigo").value;
   const msg = document.getElementById("verificacion-msg");
 
@@ -39,7 +44,7 @@ window.initMap = initMap;
 //////////////////////
 // IA DINOSAURIOS
 //////////////////////
-async function preguntarIA(){
+async function preguntarIA() {
   const pregunta = document.getElementById("pregunta").value;
   const respuestaBox = document.getElementById("respuesta");
 
@@ -47,15 +52,14 @@ async function preguntarIA(){
   respuestaBox.innerText = "Cargando...";
 
   try {
-    const res = await fetch("/chat", {
+    const res = await fetch(`${API_BASE}/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pregunta })
+      body: JSON.stringify({ pregunta }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Error desconocido");
     respuestaBox.innerText = data.respuesta;
-
   } catch (error) {
     respuestaBox.innerText = "Error IA: " + error.message;
   }
@@ -64,7 +68,7 @@ async function preguntarIA(){
 //////////////////////
 // YOUTUBE
 //////////////////////
-async function cargarVideosYouTube(){
+async function cargarVideosYouTube() {
   const contenedor = document.getElementById("youtube-videos");
   const errorBox = document.getElementById("youtube-error");
 
@@ -72,7 +76,7 @@ async function cargarVideosYouTube(){
   errorBox.innerText = "Cargando videos...";
 
   try {
-    const res = await fetch("/youtube");
+    const res = await fetch(`${API_BASE}/youtube`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Error desconocido");
     errorBox.innerText = "";
@@ -82,7 +86,7 @@ async function cargarVideosYouTube(){
       return;
     }
 
-    data.items.forEach(item => {
+    data.items.forEach((item) => {
       if (item.id.kind === "youtube#video") {
         contenedor.innerHTML += `
           <div class="video">
@@ -97,7 +101,6 @@ async function cargarVideosYouTube(){
         `;
       }
     });
-
   } catch (err) {
     errorBox.innerText = "Error YouTube: " + err.message;
   }
@@ -106,7 +109,7 @@ async function cargarVideosYouTube(){
 //////////////////////
 // FACEBOOK
 //////////////////////
-async function cargarPostsFacebook(){
+async function cargarPostsFacebook() {
   const contenedor = document.getElementById("facebook-posts");
   const errorBox = document.getElementById("facebook-error");
 
@@ -114,7 +117,7 @@ async function cargarPostsFacebook(){
   errorBox.innerText = "Cargando publicaciones...";
 
   try {
-    const res = await fetch("/facebook");
+    const res = await fetch(`${API_BASE}/facebook`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Error desconocido");
     errorBox.innerText = "";
@@ -124,7 +127,7 @@ async function cargarPostsFacebook(){
       return;
     }
 
-    data.data.forEach(post => {
+    data.data.forEach((post) => {
       contenedor.innerHTML += `
         <div class="fb-post">
           <p>${post.message || "[Sin mensaje]"}</p>
@@ -134,7 +137,6 @@ async function cargarPostsFacebook(){
         </div>
       `;
     });
-
   } catch (err) {
     errorBox.innerText = "Error Facebook: " + err.message;
   }
@@ -144,46 +146,38 @@ async function cargarPostsFacebook(){
 // STREAMING (Cloudflare R2) — con “player” principal
 //////////////////////
 function getFileNameFromKey(key) {
-  try { return (key || '').split('/').pop() || key || 'archivo'; }
-  catch { return key || 'archivo'; }
+  try { return (key || "").split("/").pop() || key || "archivo"; }
+  catch { return key || "archivo"; }
 }
-function formatBytes(bytes){
-  if (bytes === undefined || bytes === null) return '';
-  const u = ['B','KB','MB','GB','TB'];
+function formatBytes(bytes) {
+  if (bytes === undefined || bytes === null) return "";
+  const u = ["B", "KB", "MB", "GB", "TB"];
   let i = 0, v = bytes;
   while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
   return `${v.toFixed(v < 10 && i > 1 ? 1 : 0)} ${u[i]}`;
 }
 
-function setFeatured(videoObj){
-  const mainVideo    = document.getElementById('main-video');
-  const mainFilename = document.getElementById('main-filename');
-  const mainExtra    = document.getElementById('main-extra');
+function setFeatured(videoObj) {
+  const mainVideo = document.getElementById("main-video");
+  const mainFilename = document.getElementById("main-filename");
+  const mainExtra = document.getElementById("main-extra");
   if (!mainVideo) return;
 
-  // Pausa y asigna nueva fuente
   try { mainVideo.pause(); } catch {}
-  mainVideo.src = videoObj?.url || '';
+  mainVideo.src = videoObj?.url || "";
   mainVideo.currentTime = 0;
 
-  // Reproduce automáticamente al cambiar (si el navegador lo permite)
-  mainVideo.play().catch(()=>{});
+  mainVideo.play().catch(() => {});
 
-  // Metadata visible
-  const name  = getFileNameFromKey(videoObj?.key || '');
-  const size  = formatBytes(videoObj?.size);
-  const fecha = videoObj?.lastModified ? new Date(videoObj.lastModified).toLocaleString() : '';
-  mainFilename.textContent = name || 'Video';
-  mainExtra.textContent    = `${size ? `Tamaño: ${size} · ` : ''}${fecha ? `Modificado: ${fecha}` : ''}`;
+  const name = getFileNameFromKey(videoObj?.key || "");
+  const size = formatBytes(videoObj?.size);
+  const fecha = videoObj?.lastModified ? new Date(videoObj.lastModified).toLocaleString() : "";
+  mainFilename.textContent = name || "Video";
+  mainExtra.textContent = `${size ? `Tamaño: ${size} · ` : ""}${fecha ? `Modificado: ${fecha}` : ""}`;
 
-  // Scroll suave al player (mejor UX en móvil)
-  document.querySelector('.player')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.querySelector(".player")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-/**
- * Carga la lista de videos.
- * @param {string} [keepKey] - Si se indica, mantiene seleccionado ese video como "featured".
- */
 async function loadVideos(keepKey) {
   const grid = document.getElementById("videos-grid");
   if (!grid) return;
@@ -191,7 +185,7 @@ async function loadVideos(keepKey) {
   grid.innerHTML = "Cargando...";
 
   try {
-    const r = await fetch("/videos");
+    const r = await fetch(`${API_BASE}/videos`);
     const data = await r.json();
     grid.innerHTML = "";
 
@@ -202,10 +196,9 @@ async function loadVideos(keepKey) {
       return;
     }
 
-    // ✅ Mantener selección si llega keepKey; si no, usar el primero
     let featured = videos[0];
     if (keepKey) {
-      const found = videos.find(v => v.key === keepKey);
+      const found = videos.find((v) => v.key === keepKey);
       if (found) featured = found;
     }
     setFeatured(featured);
@@ -216,9 +209,8 @@ async function loadVideos(keepKey) {
       const card = document.createElement("div");
       card.className = "video-card";
       card.style.maxWidth = "360px";
-      card.title = v.key; // tooltip con la key completa
+      card.title = v.key;
 
-      // Miniatura con src correcto
       card.innerHTML = `
         <div class="video-wrap">
           <video class="hover-video" muted playsinline preload="metadata" src="${v.url}"></video>
@@ -237,17 +229,16 @@ async function loadVideos(keepKey) {
 
         <div class="video-meta">
           <div><b>Tamaño:</b> ${formatBytes(v.size)}</div>
-          <div><b>Modificado:</b> ${v.lastModified ? new Date(v.lastModified).toLocaleString() : ''}</div>
+          <div><b>Modificado:</b> ${v.lastModified ? new Date(v.lastModified).toLocaleString() : ""}</div>
         </div>
       `;
 
-      // Hover preview
       const thumb = card.querySelector(".hover-video");
       if (thumb) {
         card.addEventListener("mouseenter", () => {
           thumb.currentTime = 0;
           const p = thumb.play();
-          if (p && typeof p.catch === "function") p.catch(()=>{});
+          if (p && typeof p.catch === "function") p.catch(() => {});
         });
         card.addEventListener("mouseleave", () => {
           thumb.pause();
@@ -255,14 +246,13 @@ async function loadVideos(keepKey) {
         });
       }
 
-      // Click -> ver en grande (y si expira la URL, recarga manteniendo selección)
       card.addEventListener("click", async () => {
         setFeatured(v);
         try {
-          const head = await fetch(v.url, { method: 'HEAD' });
+          const head = await fetch(v.url, { method: "HEAD" });
           if (!head.ok) throw new Error(String(head.status));
         } catch {
-          await loadVideos(v.key); // 👈 preserva el seleccionado
+          await loadVideos(v.key);
         }
       });
 
@@ -277,8 +267,8 @@ async function loadVideos(keepKey) {
 async function handleUpload(e) {
   e.preventDefault();
   const status = document.getElementById("upload-status");
-  const input  = document.getElementById("video");
-  const file   = input?.files?.[0];
+  const input = document.getElementById("video");
+  const file = input?.files?.[0];
   if (!file) return;
 
   status.textContent = "Subiendo...";
@@ -287,12 +277,12 @@ async function handleUpload(e) {
     const fd = new FormData();
     fd.append("video", file);
 
-    const r = await fetch("/upload", { method: "POST", body: fd });
+    const r = await fetch(`${API_BASE}/upload`, { method: "POST", body: fd });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || "Error de subida");
 
     status.textContent = "✓ Subido";
-    await loadVideos(); // primera carga post-subida: pondrá el más reciente (tu server ordena)
+    await loadVideos();
   } catch (err) {
     status.textContent = "Error: " + err.message;
   } finally {
@@ -306,15 +296,21 @@ async function handleUpload(e) {
 //////////////////////
 async function pagar() {
   try {
-    const res = await fetch("/crear-pago", { method: "POST" });
+    const res = await fetch(`${API_BASE}/crear-pago`, { method: "POST" });
+    // Si el servidor no responde o CORS bloquea, fetch lanzará “Failed to fetch”
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      throw new Error(`HTTP ${res.status} ${txt}`);
+    }
     const data = await res.json();
     if (data?.url) {
       window.location.href = data.url;
     } else {
-      alert("No se pudo iniciar el pago");
+      alert("No se pudo iniciar el pago (sin URL de Stripe)");
     }
   } catch (e) {
     alert("Error al iniciar pago: " + e.message);
+    console.error("❌ /crear-pago error:", e);
   }
 }
 
@@ -332,7 +328,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!mainVideo) return;
     if (e.code === "Space") {
       e.preventDefault();
-      if (mainVideo.paused) mainVideo.play().catch(()=>{});
+      if (mainVideo.paused) mainVideo.play().catch(() => {});
       else mainVideo.pause();
     }
   });
