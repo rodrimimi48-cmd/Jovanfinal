@@ -20,6 +20,28 @@
       font-weight: bold;
       margin-top: 10px;
     }
+    /* Campo de correo (pequeño ajuste visual) */
+    .pay-box {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 10px;
+      max-width: 420px;
+      margin: 0 auto 20px;
+      width: 100%;
+    }
+    .pay-box input[type="email"] {
+      padding: 12px;
+      border-radius: 10px;
+      border: 2px solid #b37b85;
+      background: #fff7f7;
+      color: #3b0c13;
+      font-size: 16px;
+    }
+    .pay-actions {
+      display: flex;
+      justify-content: center;
+    }
   </style>
 </head>
 
@@ -84,8 +106,19 @@
     <p style="text-align:center; margin: 0 0 10px;">
       Si te gusta este proyecto, puedes apoyar con una donación. 🙌
     </p>
-    <div style="display:flex; justify-content:center; margin-bottom: 20px;">
-      <button onclick="pagar()">💳 Pagar $12 MXN</button>
+
+    <!-- Campo de correo para enviar ticket al hacer clic -->
+    <div class="pay-box">
+      <input
+        type="email"
+        id="buyerEmail"
+        placeholder="Tu correo (para enviarte el ticket)"
+        required
+        autocomplete="email"
+      />
+      <div class="pay-actions">
+        <button onclick="pagar()">💳 Pagar $12 MXN</button>
+      </div>
     </div>
 
     <!-- STREAMING -->

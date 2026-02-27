@@ -296,14 +296,33 @@ async function handleUpload(e) {
 //////////////////////
 async function pagar() {
   try {
-    const res = await fetch(`${API_BASE}/crear-pago`, { method: "POST" });
-    // Si el servidor no responde o CORS bloquea, fetch lanzará “Failed to fetch”
+    const emailInput = document.getElementById("buyerEmail");
+    const buyerEmail = (emailInput?.value || "").trim();
+    if (!buyerEmail) {
+      alert("Ingresa tu correo para enviarte el ticket.");
+      emailInput?.focus();
+      return;
+    }
+
+    // Si luego tienes un carrito real, rellena 'items' desde tu estado.
+    const items = [
+      { name: "Donación ARK", qty: 1, price: 12.00 }
+    ];
+
+    const res = await fetch(`${window.location.origin}/crear-pago`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ buyerEmail, items })
+    });
+
     if (!res.ok) {
       const txt = await res.text().catch(() => "");
       throw new Error(`HTTP ${res.status} ${txt}`);
     }
+
     const data = await res.json();
     if (data?.url) {
+      // Redirige a Stripe inmediatamente
       window.location.href = data.url;
     } else {
       alert("No se pudo iniciar el pago (sin URL de Stripe)");
@@ -313,7 +332,6 @@ async function pagar() {
     console.error("❌ /crear-pago error:", e);
   }
 }
-
 //////////////////////
 // INIT
 //////////////////////
