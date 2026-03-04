@@ -1,5 +1,6 @@
 // mailer.js
 const sg = require("@sendgrid/mail");
+const { generateReceiptPDF } = require("./pdf");
 
 if (!process.env.SENDGRID_API_KEY) {
   console.warn("⚠️  SENDGRID_API_KEY no está definida. No se enviarán correos.");
@@ -7,12 +8,11 @@ if (!process.env.SENDGRID_API_KEY) {
   sg.setApiKey(process.env.SENDGRID_API_KEY);
 }
 
-/**
- * Envía ticket al comprador y copia opcional al vendedor.
- * @param {{ session: any, lineItems: Array }} params
- */
+function asPercent(n) {
+  return `${Math.round((Number(n || 0)) * 100)}%`;
+}
+
 async function sendReceiptEmail({ session, lineItems }) {
-  // 1) Determinar email del comprador (2 posibles fuentes)
   const buyer =
     session?.customer_details?.email ||
     session?.customer_email ||
@@ -23,45 +23,70 @@ async function sendReceiptEmail({ session, lineItems }) {
     return;
   }
 
-  // 2) Armar datos del ticket
-  const amountTotal = Number(session?.amount_total || 0);
-  const amount = (amountTotal / 100).toFixed(2);
-  const currency = (session?.currency || "mxn").toUpperCase();
+  // IVA configurable (por defecto 16%)
+  const ivaRate = process.env.IVA_RATE ? Number(process.env.IVA_RATE) : 0.16;
 
-  const safeItems = Array.isArray(lineItems) ? lineItems : [];
-  const itemsHtml = safeItems
-    .map((i) => {
-      const qty = i?.quantity ?? 1;
-      const desc = i?.description || "Artículo";
-      const total = Number(i?.amount_total || 0);
-      return `<li>${qty} × ${desc} — ${(total / 100).toFixed(2)} ${currency}</li>`;
-    })
+  // Datos del vendedor (opcionales)
+  const seller = {
+    name: process.env.SELLER_NAME || "ARK",
+    taxId: process.env.SELLER_TAX_ID || "",     // RFC si lo tienes
+    address: process.env.SELLER_ADDRESS || "",
+    email: process.env.SELLER_EMAIL || process.env.MAIL_FROM
+  };
+
+  // Generar PDF
+  let pdfBuffer = null;
+  try {
+    pdfBuffer = await generateReceiptPDF({
+      session,
+      lineItems,
+      ivaRate,
+      seller
+    });
+  } catch (e) {
+    console.error("❌ Error generando PDF:", e);
+    // Continuamos sin PDF para no bloquear el correo
+  }
+
+  // HTML plano del cuerpo
+  const amount = ((session?.amount_total || 0) / 100).toFixed(2);
+  const currency = (session?.currency || "mxn").toUpperCase();
+  const itemsHtml = (lineItems || [])
+    .map(i => `<li>${i.quantity || 1} × ${i.description || "Artículo"} — ${((i.amount_total || 0) / 100).toFixed(2)} ${currency}</li>`)
     .join("");
 
   const html = `
     <h2>Gracias por tu compra</h2>
     <p>Tu pago fue procesado correctamente.</p>
-    <p><b>Total:</b> ${amount} ${currency}</p>
-    <h3>Detalles del ticket:</h3>
+    <p><b>Total cobrado (Stripe):</b> ${amount} ${currency}</p>
+    <h3>Detalles:</h3>
     <ul>${itemsHtml}</ul>
-    <p><b>ID Stripe:</b> ${session?.id}</p>
+    <p><b>Folio Stripe:</b> ${session?.id}</p>
+    <p>Adjuntamos tu ticket en PDF con desglose de IVA.</p>
   `;
 
   const text =
     [
       "Gracias por tu compra",
-      `Total: ${amount} ${currency}`,
+      `Total cobrado (Stripe): ${amount} ${currency}`,
       "Detalles:",
-      ...safeItems.map((i) => {
-        const qty = i?.quantity ?? 1;
-        const desc = i?.description || "Artículo";
-        const total = Number(i?.amount_total || 0);
-        return `- ${qty} × ${desc} — ${(total / 100).toFixed(2)} ${currency}`;
-      }),
-      `ID Stripe: ${session?.id}`,
+      ...(lineItems || []).map(i => `- ${(i.quantity || 1)} × ${(i.description || "Artículo")} — ${((i.amount_total || 0)/100).toFixed(2)} ${currency}`),
+      `Folio Stripe: ${session?.id}`,
+      `IVA aplicado en PDF: ${asPercent(ivaRate)}`
     ].join("\n");
 
-  // 3) Enviar al comprador
+  // Armar attachments
+  const attachments = [];
+  if (pdfBuffer) {
+    attachments.push({
+      content: pdfBuffer.toString('base64'),
+      filename: `Ticket-ARK-${session?.id || 'compra'}.pdf`,
+      type: 'application/pdf',
+      disposition: 'attachment'
+    });
+  }
+
+  // Enviar al comprador
   try {
     if (!process.env.MAIL_FROM) {
       throw new Error("MAIL_FROM no está configurado en .env (debe ser un sender verificado en SendGrid).");
@@ -70,34 +95,31 @@ async function sendReceiptEmail({ session, lineItems }) {
     const [resp] = await sg.send({
       to: buyer,
       from: process.env.MAIL_FROM,
-      subject: "🎟️ Tu ticket de compra – ARK",
+      subject: "🎟️ Tu ticket de compra (PDF) – ARK",
       html,
       text,
-      // Opcional: agrega reply-to si quieres recibir respuestas del cliente
-      // replyTo: process.env.SELLER_EMAIL || process.env.MAIL_FROM,
+      attachments
     });
 
-    console.log("📧 Ticket enviado al comprador →", buyer, "| SendGrid:", resp?.statusCode);
+    console.log("📧 Ticket (con PDF) enviado →", buyer, "| SendGrid:", resp?.statusCode);
   } catch (err) {
-    // Log detallado (si SendGrid responde con body de error lo imprimimos)
-    const sgBody = err?.response?.body || err?.message || err;
-    console.error("❌ Error enviando correo al comprador:", sgBody);
-    // No lanzamos throw para no afectar el 200 del webhook ante Stripe.
+    console.error("❌ SendGrid error (comprador):", err?.response?.body || err?.message || err);
   }
 
-  // 4) Copia al vendedor (opcional)
+  // Copia al vendedor (opcional)
   if (process.env.SELLER_EMAIL) {
     try {
       const [copy] = await sg.send({
         to: process.env.SELLER_EMAIL,
         from: process.env.MAIL_FROM,
-        subject: "🛒 Nueva compra ARK",
+        subject: "🛒 Nueva compra ARK (PDF adjunto)",
         html,
         text,
+        attachments
       });
       console.log("📨 Copia a vendedor OK →", process.env.SELLER_EMAIL, "| SendGrid:", copy?.statusCode);
     } catch (err) {
-      console.error("❌ Error enviando copia al vendedor:", err?.response?.body || err?.message || err);
+      console.error("❌ SendGrid error (vendedor):", err?.response?.body || err?.message || err);
     }
   }
 }

@@ -365,14 +365,18 @@ app.post("/debug-send", async (req, res) => {
     const to = (req.body?.to || "").trim();
     if (!to) return res.status(400).json({ error: "Falta 'to' en body" });
 
+    // Simula una sesión y line items
     const fakeSession = {
       id: "debug_session_123",
       amount_total: 1200,
       currency: "mxn",
       customer_email: to,
       customer_details: { email: to },
+      created: Math.floor(Date.now() / 1000)
     };
-    const fakeItems = [{ description: "Donación ARK", quantity: 1, amount_total: 1200 }];
+    const fakeItems = [
+      { description: "Donación ARK", quantity: 1, amount_total: 1200, amount_subtotal: 1035, price: { unit_amount: 1200 } }
+    ];
 
     const { sendReceiptEmail } = require("./mailer");
     await sendReceiptEmail({ session: fakeSession, lineItems: fakeItems });
