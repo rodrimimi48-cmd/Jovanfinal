@@ -36,6 +36,23 @@ function getBaseUrl(req) {
   const host = (req.headers["x-forwarded-host"] || req.get("host") || "").split(",")[0].trim();
   return `${proto}://${host}`;
 }
+function contentTypeForExt(ext) {
+  switch ((ext || "").toLowerCase()) {
+    case ".glb": return "model/gltf-binary";
+    case ".gltf": return "model/gltf+json";
+    case ".bin": return "application/octet-stream";
+    case ".hdr": return "image/vnd.radiance";
+    case ".ktx2": return "image/ktx2";
+    case ".png": return "image/png";
+    case ".jpg":
+    case ".jpeg": return "image/jpeg";
+    case ".webp": return "image/webp";
+    case ".mp4": return "video/mp4";
+    case ".webm": return "video/webm";
+    case ".ogg": return "video/ogg";
+    default: return mime.contentType(ext) || "application/octet-stream";
+  }
+}
 
 /* ------------------------- LOG VARS ------------------------- */
 console.log("===== VARIABLES DE ENTORNO =====");
@@ -110,7 +127,7 @@ app.post(
           console.error("⚠️ Error listando line items:", err.message);
         }
 
-        // Enviar ticket (con PDF si ya integraste el generador)
+        // Enviar ticket
         try {
           await sendReceiptEmail({
             session,
@@ -333,15 +350,16 @@ app.get("/videos", async (_req, res) => {
 
 /* ============================ MODELOS 3D ============================ */
 /** Acepta extensiones comunes. Ojo: algunos navegadores suben OBJ/STL como application/octet-stream. */
-const allowedModelExt = new Set([".glb", ".gltf", ".obj", ".stl"]);
+const path = require("path");
+const allowedModelExt = new Set([".glb", ".gltf", ".obj", ".stl", ".bin", ".hdr", ".ktx2"]);
 
 const uploadModel = multer({
   storage,
-  limits: { fileSize: 1024 * 1024 * 100 }, // 100MB (ajusta a tu gusto)
+  limits: { fileSize: 1024 * 1024 * 100 }, // 100MB (ajusta)
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
     if (!allowedModelExt.has(ext)) {
-      return cb(new Error("Solo se permiten modelos .glb, .gltf, .obj, .stl"));
+      return cb(new Error("Solo .glb, .gltf, .obj, .stl, .bin, .hdr, .ktx2"));
     }
     cb(null, true);
   },
@@ -357,8 +375,9 @@ app.post("/upload-model", uploadModel.single("model"), async (req, res) => {
     if (!req.file)
       return res.status(400).json({ error: "No file 'model'" });
 
+    const originalExt = path.extname(req.file.originalname).toLowerCase();
     const key = `models/${req.file.filename}`;
-    const contentType = mime.contentType(path.extname(req.file.originalname)) || "application/octet-stream";
+    const contentType = contentTypeForExt(originalExt);
 
     await s3.send(
       new PutObjectCommand({
@@ -371,21 +390,21 @@ app.post("/upload-model", uploadModel.single("model"), async (req, res) => {
 
     fs.unlink(temp, () => {});
 
-    // Te regreso también una URL prefirmada listita para usar 1 hora
+    // URL prefirmada 1 hora
     const url = await getSignedUrl(
       s3,
       new GetObjectCommand({ Bucket: process.env.S3_BUCKET, Key: key }),
       { expiresIn: 3600 }
     );
 
-    res.json({ ok: true, key, url });
+    res.json({ ok: true, key, url, contentType });
   } catch (err) {
     if (temp) fs.unlink(temp, () => {});
     res.status(500).json({ error: err.message });
   }
 });
 
-/** Listar modelos */
+/** Listar modelos (más reciente primero) */
 app.get("/models", async (_req, res) => {
   try {
     if (!process.env.S3_BUCKET)
@@ -420,6 +439,45 @@ app.get("/models", async (_req, res) => {
     );
 
     res.json({ models: result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** Obtener solo el más reciente (útil si quieres una llamada rápida) */
+app.get("/model-latest", async (_req, res) => {
+  try {
+    if (!process.env.S3_BUCKET)
+      return res.status(500).json({ error: "Falta S3_BUCKET" });
+
+    const list = await s3.send(
+      new ListObjectsV2Command({
+        Bucket: process.env.S3_BUCKET,
+        Prefix: "models/",
+        MaxKeys: 1000,
+      })
+    );
+
+    const items = (list.Contents || [])
+      .filter((o) => o.Key && !o.Key.endsWith("/"))
+      .sort((a, b) => new Date(b.LastModified) - new Date(a.LastModified));
+
+    if (!items.length) return res.json({ model: null });
+
+    const head = items[0];
+    const url = await getSignedUrl(
+      s3,
+      new GetObjectCommand({ Bucket: process.env.S3_BUCKET, Key: head.Key }),
+      { expiresIn: 3600 }
+    );
+    res.json({
+      model: {
+        key: head.Key,
+        size: head.Size,
+        lastModified: head.LastModified,
+        url,
+      },
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
