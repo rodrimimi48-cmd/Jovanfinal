@@ -3,21 +3,6 @@
 //////////////////////
 const API_BASE = window.location.origin; // mismo host/puerto del server
 
-// === OPCIONAL: si quieres forzar un modelo público de R2, pégalo aquí ===
-// Ejemplo: "https://pub-xxxxxxxxxxxx.r2.dev/models/giganoto.glb"
-const R2_PUBLIC_MODEL_URL = "";
-
-/* Utilidad: extraer extensión de una URL (ignora querystring) */
-function getExtFromUrl(url = "") {
-  try {
-    const clean = url.split("?")[0];
-    const ext = clean.split(".").pop();
-    return (ext || "").toLowerCase();
-  } catch {
-    return "";
-  }
-}
-
 //////////////////////
 // 2FA SIMPLE
 //////////////////////
@@ -319,6 +304,7 @@ async function pagar() {
       return;
     }
 
+    // Si luego tienes un carrito real, rellena 'items' desde tu estado.
     const items = [{ name: "Donación ARK", qty: 1, price: 12.0 }];
 
     const res = await fetch(`${window.location.origin}/crear-pago`, {
@@ -334,6 +320,7 @@ async function pagar() {
 
     const data = await res.json();
     if (data?.url) {
+      // Redirige a Stripe inmediatamente
       window.location.href = data.url;
     } else {
       alert("No se pudo iniciar el pago (sin URL de Stripe)");
@@ -374,7 +361,7 @@ function setModelStatus(msg) {
 
 function init3D() {
   threeContainer = document.getElementById("viewer3d");
-  if (!threeContainer || !window.THREE) return;
+  if (!threeContainer || !window.THREE) return; // si no existe el div o no cargó three.js, no iniciar
 
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x111111);
@@ -432,35 +419,6 @@ function init3D() {
 
   // Mensaje inicial
   setModelStatus("Arrastra aquí un .glb/.gltf o usa “Cargar modelo 3D”.");
-
-  // --- Auto-carga ---
-  // 1) Si definiste una URL pública de R2, úsala:
-  if (R2_PUBLIC_MODEL_URL) {
-    const ext = getExtFromUrl(R2_PUBLIC_MODEL_URL);
-    cargarUrl3D(R2_PUBLIC_MODEL_URL, ext);
-  } else {
-    // 2) Si no, intenta cargar el más reciente desde tu API (/models):
-    loadLatestModelFromAPI();
-  }
-}
-
-async function loadLatestModelFromAPI() {
-  try {
-    setModelStatus("Buscando modelo más reciente…");
-    const r = await fetch(`${API_BASE}/models`);
-    const data = await r.json();
-    const models = data.models || [];
-    if (!models.length) {
-      setModelStatus("Sin modelos en la nube. Sube uno o arrastra un archivo.");
-      return;
-    }
-    const m = models[0]; // ya vienen ordenados por server (más reciente primero)
-    const ext = getExtFromUrl(m.url) || getExtFromUrl(m.key);
-    cargarUrl3D(m.url, ext);
-  } catch (e) {
-    console.error("No se pudo cargar /models:", e);
-    setModelStatus("No se pudo listar modelos. Revisa el servidor o CORS.");
-  }
 }
 
 function onResize3D() {
@@ -551,22 +509,12 @@ function cargarUrl3D(url, ext, done) {
     };
     const onError = (err) => {
       console.error("❌ Error cargando modelo:", err);
-      setModelStatus("Error cargando modelo. Revisa CORS/MIME/URL.");
+      setModelStatus("Error cargando modelo.");
       done?.();
     };
 
-    // GLTF/GLB
     if ((ext === "gltf" || ext === "glb") && THREE.GLTFLoader) {
       const loader = new THREE.GLTFLoader();
-
-      // Si está DRACO disponible (solo si agregaste el script en el HTML)
-      if (THREE.DRACOLoader) {
-        const draco = new THREE.DRACOLoader();
-        // Ajusta si subes los decoders a tu CDN/Bucket
-        draco.setDecoderPath("https://unpkg.com/three@0.160.0/examples/js/libs/draco/");
-        loader.setDRACOLoader(draco);
-      }
-
       loader.load(
         url,
         (gltf) => {
@@ -579,9 +527,8 @@ function cargarUrl3D(url, ext, done) {
         onProgress,
         onError
       );
-    }
-    // OBJ
-    else if (ext === "obj" && THREE.OBJLoader) {
+    } else if (ext === "obj" && THREE.OBJLoader) {
+      // Si quieres OBJ, agrega el script de OBJLoader en tu index.html
       const loader = new THREE.OBJLoader();
       loader.load(
         url,
@@ -595,9 +542,8 @@ function cargarUrl3D(url, ext, done) {
         onProgress,
         onError
       );
-    }
-    // STL
-    else if (ext === "stl" && THREE.STLLoader) {
+    } else if (ext === "stl" && THREE.STLLoader) {
+      // Si quieres STL, agrega el script de STLLoader en tu index.html
       const loader = new THREE.STLLoader();
       loader.load(
         url,
@@ -637,11 +583,6 @@ function toggleFondo3D() {
   lastBgDark = !lastBgDark;
   scene.background = new THREE.Color(lastBgDark ? 0x111111 : 0xf3f3f3);
 }
-
-// Exponer funciones para los botones del HTML (por si acaso)
-window.cargarModelo3D = cargarModelo3D;
-window.resetCamara3D = resetCamara3D;
-window.toggleFondo3D = toggleFondo3D;
 
 //////////////////////
 // INIT
