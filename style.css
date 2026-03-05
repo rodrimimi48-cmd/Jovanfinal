@@ -1,7 +1,285 @@
-/* ============================== */
-/*   NUEVO — VISUALIZADOR 3D      */
-/* ============================== */
+/* =========================================== */
+/*               FONDO GENERAL                 */
+/* =========================================== */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: url('Monster Hunter World.png') no-repeat center center fixed;
+  background-size: cover;
+  min-height: 100vh;
+  position: relative;
+}
 
+/* Capa oscura */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0,0,0,0.55);
+  z-index: 0;
+}
+
+/* =========================================== */
+/*                 CONTENEDOR                   */
+/* =========================================== */
+.container {
+  position: relative;
+  z-index: 1;
+  background: rgba(255, 245, 245, 0.92);
+  max-width: 760px;
+  width: 92%;
+  margin: 40px auto;
+  padding: 35px;
+  border-radius: 18px;
+  border: 2px solid #5e0a18;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+}
+
+/* =========================================== */
+/*                   TITULOS                    */
+/* =========================================== */
+h1, h2 {
+  text-align: center;
+  color: #5e0a18;
+  font-weight: 700;
+  letter-spacing: .3px;
+  margin-top: 8px;
+}
+
+/* =========================================== */
+/*                  BOTONES                     */
+/* =========================================== */
+button {
+  padding: 12px 14px;
+  border: none;
+  border-radius: 10px;
+  background-color: #7a1026;
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  margin: 5px 6px 5px 0;
+  transition: 0.2s ease;
+}
+
+button:hover {
+  background-color: #4e0a18;
+  transform: translateY(-1px);
+}
+
+/* Botón para pagar */
+button[onclick="pagar()"] {
+  width: 100%;
+  font-size: 18px;
+  padding: 14px;
+  border-radius: 14px;
+  margin-top: 10px;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.20);
+}
+
+/* Botón de cargar modelo 3D */
+button[onclick="cargarModelo3D()"] {
+  width: 100%;
+  margin-top: 10px;
+  padding: 14px;
+  border-radius: 14px;
+}
+
+/* =========================================== */
+/*                     INPUTS                   */
+/* =========================================== */
+input[type="text"],
+input[type="email"],
+input[type="file"] {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: 2px solid #b37b85;
+  margin: 7px 0 10px;
+  font-size: 16px;
+  background: #fff7f7;
+  color: #3b0c13;
+}
+
+input:focus {
+  outline: none;
+  border-color: #7a1026;
+  box-shadow: 0 0 8px rgba(122,16,38,0.35);
+}
+
+/* =========================================== */
+/*                     CAJAS                    */
+/* =========================================== */
+#respuesta,
+#verificacion-msg,
+#upload-status {
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 10px;
+  background-color: #fff2f2;
+  border-left: 5px solid #7a1026;
+  min-height: 40px;
+  color: #330610;
+}
+
+/* =========================================== */
+/*                 MAPA GOOGLE                  */
+/* =========================================== */
+#map {
+  margin-top: 15px;
+  width: 100%;
+  height: 300px;
+  border-radius: 15px;
+  border: 3px solid #7a1026;
+}
+
+/* =========================================== */
+/*                 SECCIÓN REDES                */
+/* =========================================== */
+#youtube-videos,
+#facebook-posts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.video,
+.fb-post {
+  background: #ffffff;
+  padding: 10px;
+  border-radius: 12px;
+  border-left: 5px solid #7a1026;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.13);
+  max-width: 300px;
+}
+
+/* =========================================== */
+/*           PLAYER PRINCIPAL (VIDEO)          */
+/* =========================================== */
+.player {
+  background: #000;
+  border-radius: 14px;
+  border: 2px solid #7a1026;
+  overflow: hidden;
+  margin-bottom: 18px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+}
+
+.player-wrap {
+  position: relative;
+  background: #000;
+  aspect-ratio: 16 / 9;
+  width: 100%;
+}
+
+#main-video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Overlay título */
+.player-overlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  padding: 10px 12px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.65), rgba(0,0,0,0));
+  color: #fff;
+}
+
+#main-filename {
+  font-weight: 700;
+  text-shadow: 0 2px 6px rgba(0,0,0,.6);
+}
+
+.player-meta {
+  background: #111;
+  color: #ddd;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+/* =========================================== */
+/*                 MINIATURAS GRID             */
+/* =========================================== */
+#videos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.video-card {
+  background: #fff;
+  border-radius: 12px;
+  border-left: 5px solid #7a1026;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+  transition: 0.2s ease;
+  cursor: pointer;
+}
+
+.video-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+}
+
+.video-wrap {
+  position: relative;
+  background: #000;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+}
+
+.hover-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.video-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 10px 12px;
+  background: linear-gradient(to top, rgba(0,0,0,0.65), rgba(0,0,0,0));
+  color: #fff;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: 0.2s ease;
+}
+
+.video-card:hover .video-overlay {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.play-badge {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  opacity: 0;
+  transition: 0.18s ease;
+}
+
+.play-badge svg {
+  width: 54px;
+  height: 54px;
+  filter: drop-shadow(0 4px 12px rgba(0,0,0,.45));
+}
+
+.video-card:hover .play-badge {
+  opacity: .15;
+}
+
+/* =========================================== */
+/*                 VISOR 3D                    */
+/* =========================================== */
 #viewer3d {
   width: 100%;
   height: 400px;
@@ -13,99 +291,14 @@
   box-shadow: 0 8px 24px rgba(0,0,0,0.25);
 }
 
-/* Input del modelo */
-#modelInput {
-  width: 100%;
-  padding: 12px;
-  border-radius: 10px;
-  border: 2px solid #b37b85;
-  margin: 10px 0;
-  background: #fff7f7;
-  color: #3b0c13;
-  font-size: 16px;
-}
-
-/* Botón para cargar modelo 3D */
-button[onclick="cargarModelo3D()"] {
-  background-color: #7a1026;
-  color: white;
-  padding: 12px 14px;
-  border-radius: 10px;
-  border: none;
-  margin-top: 5px;
-  cursor: pointer;
-  font-size: 16px;
-  transition: 0.2s ease;
-}
-
-button[onclick="cargarModelo3D()"]:hover {
-  background-color: #4e0a18;
-  transform: translateY(-2px);
-}
-
-/* ============================== */
-/*   NUEVO — CORREO DEL TICKET    */
-/* ============================== */
-
-#buyerEmail {
-  width: 100%;
-  padding: 12px;
-  border-radius: 12px;
-  border: 2px solid #b37b85;
-  font-size: 16px;
-  background: #fff7f7;
-  color: #3b0c13;
-  margin-bottom: 12px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-}
-
-/* Mantener coherencia al hacer focus */
-#buyerEmail:focus,
-#modelInput:focus {
-  border-color: #7a1026;
-  outline: none;
-  box-shadow: 0 0 8px rgba(122,16,38,0.4);
-}
-
-/* ============================== */
-/*  NUEVO — BOTÓN DE PAGO EDITADO */
-/* ============================== */
-
-button[onclick="pagar()"] {
-  background-color: #7a1026;
-  padding: 14px 18px;
-  font-size: 18px;
-  border-radius: 12px;
-  box-shadow: 0 6px 14px rgba(0,0,0,0.2);
-}
-
-button[onclick="pagar()"]:hover {
-  background-color: #4e0a18;
-  transform: translateY(-2px);
-}
-
-/* ============================== */
-/* RESPUESTA TICKET/ERRORES EXTRA */
-/* ============================== */
-
-.ticket-msg {
-  padding: 12px;
-  margin-top: 10px;
-  background: #fff2f2;
-  border-left: 5px solid #7a1026;
-  border-radius: 10px;
-  color: #330610;
-  font-size: 15px;
-}
-
-/* ============================== */
-/* ADAPTACIÓN MÓVILES             */
-/* ============================== */
-
+/* =========================================== */
+/*         ADAPTACIÓN A DISPOSITIVOS           */
+/* =========================================== */
 @media (max-width: 600px) {
   #viewer3d {
     height: 300px;
   }
+
   button {
     width: 100%;
   }
