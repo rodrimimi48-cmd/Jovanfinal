@@ -392,7 +392,7 @@ function init3D() {
   dir.position.set(5, 10, 7);
   scene.add(dir);
 
-  // Helpers para que no se vea “todo negro” sin modelo
+  // Helpers (para que no se vea vacío sin modelo)
   const grid = new THREE.GridHelper(10, 10, 0x444444, 0x222222);
   scene.add(grid);
   const axes = new THREE.AxesHelper(1.5);
@@ -423,14 +423,13 @@ function init3D() {
 
   animate3D();
 
-  // Resize (también observa cambios del contenedor)
+  // Resize (observa cambios del contenedor)
   window.addEventListener("resize", onResize3D);
   if (window.ResizeObserver) {
     const ro = new ResizeObserver(onResize3D);
     ro.observe(threeContainer);
   }
 
-  // Mensaje inicial
   setModelStatus("Arrastra aquí un .glb/.gltf/.obj/.stl o usa “Cargar modelo 3D”.");
 }
 
@@ -464,14 +463,13 @@ function clearModel3D() {
 }
 
 function fitModel(object3D) {
-  // centra y escala el modelo para que quepa en cámara
   const box = new THREE.Box3().setFromObject(object3D);
   const size = new THREE.Vector3();
   const center = new THREE.Vector3();
   box.getSize(size);
   box.getCenter(center);
 
-  // Re-centra al origen (corrección: restar el centro)
+  // Re-centra al origen
   object3D.position.sub(center);
 
   // Calcula distancia para encuadre
@@ -519,12 +517,30 @@ function cargarUrl3D(url, ext, done) {
     };
     const onError = (err) => {
       console.error("❌ Error cargando modelo:", err);
-      setModelStatus("Error cargando modelo.");
+      const msg = (err && (err.message || err.toString())) || "Error cargando modelo.";
+      setModelStatus(msg);
       done?.();
     };
 
+    // ---- GLB / GLTF ----
     if ((ext === "gltf" || ext === "glb") && THREE.GLTFLoader) {
       const loader = new THREE.GLTFLoader();
+
+      // DRACO (para glb/gltf comprimidos)
+      if (THREE.DRACOLoader) {
+        const draco = new THREE.DRACOLoader();
+        draco.setDecoderPath("https://unpkg.com/three@0.160.0/examples/js/libs/draco/");
+        loader.setDRACOLoader(draco);
+      }
+
+      // KTX2 (texturas BasisU/ktx2)
+      if (THREE.KTX2Loader) {
+        const ktx2 = new THREE.KTX2Loader();
+        ktx2.setTranscoderPath("https://unpkg.com/three@0.160.0/examples/js/libs/basis/");
+        ktx2.detectSupport(renderer);
+        loader.setKTX2Loader(ktx2);
+      }
+
       loader.load(
         url,
         (gltf) => {
@@ -537,7 +553,11 @@ function cargarUrl3D(url, ext, done) {
         onProgress,
         onError
       );
-    } else if (ext === "obj" && THREE.OBJLoader) {
+      return;
+    }
+
+    // ---- OBJ ----
+    if (ext === "obj" && THREE.OBJLoader) {
       const loader = new THREE.OBJLoader();
       loader.load(
         url,
@@ -551,7 +571,11 @@ function cargarUrl3D(url, ext, done) {
         onProgress,
         onError
       );
-    } else if (ext === "stl" && THREE.STLLoader) {
+      return;
+    }
+
+    // ---- STL ----
+    if (ext === "stl" && THREE.STLLoader) {
       const loader = new THREE.STLLoader();
       loader.load(
         url,
@@ -571,11 +595,12 @@ function cargarUrl3D(url, ext, done) {
         onProgress,
         onError
       );
-    } else {
-      alert("Formato no compatible o loader no disponible. Usa .glb/.gltf/.obj/.stl");
-      setModelStatus("Formato no soportado.");
-      done?.();
+      return;
     }
+
+    alert("Formato no compatible o loader no disponible. Usa .glb/.gltf/.obj/.stl");
+    setModelStatus("Formato no soportado.");
+    done?.();
   } catch (e) {
     console.error(e);
     setModelStatus("Error inesperado cargando modelo.");
