@@ -247,7 +247,7 @@ const s3 = new S3Client({
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, os.tmpdir()),
   filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase() || ".bin";
+    const ext = path.extname(file.originalname || "").toLowerCase() || ".bin";
     cb(null, `${uuidv4()}${ext}`);
   },
 });
@@ -334,7 +334,7 @@ app.get("/videos", async (_req, res) => {
 });
 
 /* ============================ MODELOS 3D ============================ */
-/** Acepta extensiones comunes. Ojo: algunos navegadores suben OBJ/STL como application/octet-stream. */
+/** Extensiones soportadas */
 const allowedModelExt = new Set([".glb", ".gltf", ".obj", ".stl"]);
 
 /** MIME explícitos para modelos 3D (mejor que depender solo de mime-types) */
@@ -345,15 +345,48 @@ const GLTF_MIME_MAP = {
   ".stl":  "model/stl",
 };
 
+/** Upload de modelos con filtro robusto */
 const uploadModel = multer({
   storage,
-  limits: { fileSize: 1024 * 1024 * 100 }, // 100MB (ajusta a tu gusto)
+  limits: { fileSize: 1024 * 1024 * 200 }, // 200MB
   fileFilter: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    if (!allowedModelExt.has(ext)) {
-      return cb(new Error("Solo se permiten modelos .glb, .gltf, .obj, .stl"));
+    const original = file.originalname || "";
+    let ext = (path.extname(original) || "").toLowerCase();
+    const mimeType = (file.mimetype || "").toLowerCase();
+
+    // ▸ Logs para diagnosticar
+    console.log("📦 Model recibido:", { original, ext, mimeType });
+
+    // Si la extensión viene vacía, intenta inferir por nombre
+    if (!ext) {
+      if (original.toLowerCase().endsWith(".glb")) ext = ".glb";
+      else if (original.toLowerCase().endsWith(".gltf")) ext = ".gltf";
+      else if (original.toLowerCase().endsWith(".obj")) ext = ".obj";
+      else if (original.toLowerCase().endsWith(".stl")) ext = ".stl";
     }
-    cb(null, true);
+
+    // Acepta por extensión conocida
+    if (allowedModelExt.has(ext)) {
+      console.log("✅ Extensión válida:", ext);
+      return cb(null, true);
+    }
+
+    // Fallback: algunos clientes setean un MIME útil sin extensión
+    const mimeHints = new Set([
+      "model/gltf+json",
+      "model/gltf-binary",
+      "model/stl",
+      "application/sla",              // STL
+      "application/vnd.ms-pki.stl",   // STL
+      "application/octet-stream"      // MUY común en navegadores
+    ]);
+
+    if (mimeHints.has(mimeType)) {
+      console.log("⚠️ Aceptado por MIME (sin extensión):", mimeType);
+      return cb(null, true);
+    }
+
+    return cb(new Error(`Formato no permitido. Usa .glb/.gltf/.obj/.stl (recibido ext="${ext}", mime="${mimeType}")`));
   },
 });
 
@@ -367,14 +400,17 @@ app.post("/upload-model", uploadModel.single("model"), async (req, res) => {
     if (!req.file)
       return res.status(400).json({ error: "No file 'model'" });
 
+    const original = req.file.originalname || "";
+    const ext = (path.extname(original) || "").toLowerCase();
     const key = `models/${req.file.filename}`;
-    const ext = path.extname(req.file.originalname).toLowerCase();
 
-    // MIME explícito + fallback a mime-types + octet-stream
+    // MIME explícito + fallback
     const contentType =
       GLTF_MIME_MAP[ext] ||
       mime.contentType(ext) ||
       "application/octet-stream";
+
+    console.log("🟢 SUBIENDO MODELO", { original, key, contentType });
 
     await s3.send(
       new PutObjectCommand({
