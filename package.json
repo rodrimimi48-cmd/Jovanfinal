@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Proyecto Node.js con IA, mapa y frontend",
   "main": "server.js",
+  "type": "commonjs",
   "scripts": {
     "start": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -14,11 +15,13 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
   "bugs": {
     "url": "https://github.com/rodrimimi48-cmd/Jovanfinal/issues"
   },
   "homepage": "https://github.com/rodrimimi48-cmd/Jovanfinal#readme",
+  "engines": {
+    "node": ">=18 <23"
+  },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.994.0",
     "@aws-sdk/s3-request-presigner": "^3.994.0",
@@ -34,6 +37,7 @@
     "openai": "^6.22.0",
     "pdfkit": "^0.17.2",
     "stripe": "^20.3.1",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "three": "^0.150.1"
   }
 }

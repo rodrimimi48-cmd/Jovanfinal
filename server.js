@@ -26,7 +26,8 @@ const stripe = process.env.STRIPE_SECRET_KEY
 
 // Correo
 let sendReceiptEmail = async () => {};
-try { // mailer opcional (evita crash si no está el archivo)
+try {
+  // mailer opcional (evita crash si no está el archivo)
   ({ sendReceiptEmail } = require("./mailer"));
 } catch (e) {
   console.warn("[WARN] mailer no encontrado, usando función vacía");
@@ -37,8 +38,12 @@ app.set("trust proxy", 1);
 
 /* ------------------------- UTIL ------------------------- */
 function getBaseUrl(req) {
-  const proto = (req.headers["x-forwarded-proto"] || req.protocol || "http").split(",")[0].trim();
-  const host = (req.headers["x-forwarded-host"] || req.get("host") || "").split(",")[0].trim();
+  const proto = (req.headers["x-forwarded-proto"] || req.protocol || "http")
+    .split(",")[0]
+    .trim();
+  const host = (req.headers["x-forwarded-host"] || req.get("host") || "")
+    .split(",")[0]
+    .trim();
   return `${proto}://${host}`;
 }
 
@@ -58,8 +63,8 @@ console.log("===== VARIABLES DE ENTORNO =====");
   "BASE_URL",
   "SENDGRID_API_KEY",
   "MAIL_FROM",
-  "SELLER_EMAIL"
-].forEach(v => console.log(v, process.env[v] ? "✅" : "❌"));
+  "SELLER_EMAIL",
+].forEach((v) => console.log(v, process.env[v] ? "✅" : "❌"));
 console.log("=======================================================");
 
 /* ------------------------- MIDDLEWARES ------------------------- */
@@ -71,7 +76,17 @@ app.use(
   })
 );
 
-// Estáticos (sirve index.html, script.js, style.css, etc.)
+// === Servir three (ESM) desde node_modules como estático ===
+// /vendor/three  →  node_modules/three  (para imports ESM en el navegador)
+app.use(
+  "/vendor/three",
+  express.static(path.join(__dirname, "node_modules/three"))
+);
+
+// (OPCIONAL) Quitar 404 de favicon si te molesta en logs
+// app.use("/favicon.ico", express.static(path.join(__dirname, "favicon.ico")));
+
+// Estáticos (sirve Index.html, script.js, style.css, etc.)
 app.use(express.static(path.join(__dirname)));
 
 // Logging
@@ -121,7 +136,10 @@ app.post(
             session,
             lineItems: lineItems.data,
           });
-          console.log("📧 Ticket enviado a:", session.customer_details?.email || session.customer_email);
+          console.log(
+            "📧 Ticket enviado a:",
+            session.customer_details?.email || session.customer_email
+          );
         } catch (mailErr) {
           console.error("❌ Error enviando email:", mailErr.message);
         }
@@ -158,8 +176,7 @@ app.post("/chat", async (req, res) => {
       return res.status(500).json({ error: "Falta HF_API_KEY" });
 
     const { pregunta } = req.body;
-    if (!pregunta)
-      return res.status(400).json({ error: "Falta pregunta" });
+    if (!pregunta) return res.status(400).json({ error: "Falta pregunta" });
 
     const response = await axios.post(
       "https://router.huggingface.co/v1/chat/completions",
@@ -192,18 +209,15 @@ app.get("/youtube", async (_req, res) => {
     if (!process.env.YOUTUBE_API_KEY)
       return res.status(500).json({ error: "Falta YOUTUBE_API_KEY" });
 
-    const r = await axios.get(
-      "https://www.googleapis.com/youtube/v3/search",
-      {
-        params: {
-          part: "snippet",
-          q: "Animales prehistóricos documentales",
-          type: "video",
-          maxResults: 6,
-          key: process.env.YOUTUBE_API_KEY,
-        },
-      }
-    );
+    const r = await axios.get("https://www.googleapis.com/youtube/v3/search", {
+      params: {
+        part: "snippet",
+        q: "Animales prehistóricos documentales",
+        type: "video",
+        maxResults: 6,
+        key: process.env.YOUTUBE_API_KEY,
+      },
+    });
 
     res.json(r.data);
   } catch (err) {
@@ -248,8 +262,8 @@ const s3 = new S3Client({
 
 /* ------------------------- MULTER (disco temporal) ------------------------- */
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, os.tmpdir()),
-  filename: (req, file, cb) => {
+  destination: (_req, _file, cb) => cb(null, os.tmpdir()),
+  filename: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase() || ".bin";
     cb(null, `${uuidv4()}${ext}`);
   },
@@ -261,7 +275,7 @@ const allowedVideoMimes = ["video/mp4", "video/webm", "video/ogg"];
 const uploadVideo = multer({
   storage,
   limits: { fileSize: 1024 * 1024 * 500 }, // 500MB
-  fileFilter: (req, file, cb) => {
+  fileFilter: (_req, file, cb) => {
     if (!allowedVideoMimes.includes(file.mimetype)) {
       return cb(new Error("Formato inválido (solo MP4/WEBM/OGG)."));
     }
@@ -275,8 +289,7 @@ app.post("/upload", uploadVideo.single("video"), async (req, res) => {
     if (!process.env.S3_BUCKET)
       return res.status(500).json({ error: "Falta S3_BUCKET" });
 
-    if (!req.file)
-      return res.status(400).json({ error: "No file" });
+    if (!req.file) return res.status(400).json({ error: "No file" });
 
     const key = `videos/${req.file.filename}`;
 
@@ -343,7 +356,7 @@ const allowedModelExt = new Set([".glb", ".gltf", ".obj", ".stl"]);
 const uploadModel = multer({
   storage,
   limits: { fileSize: 1024 * 1024 * 100 }, // 100MB (ajusta a tu gusto)
-  fileFilter: (req, file, cb) => {
+  fileFilter: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
     if (!allowedModelExt.has(ext)) {
       return cb(new Error("Solo se permiten modelos .glb, .gltf, .obj, .stl"));
@@ -359,11 +372,12 @@ app.post("/upload-model", uploadModel.single("model"), async (req, res) => {
     if (!process.env.S3_BUCKET)
       return res.status(500).json({ error: "Falta S3_BUCKET" });
 
-    if (!req.file)
-      return res.status(400).json({ error: "No file 'model'" });
+    if (!req.file) return res.status(400).json({ error: "No file 'model'" });
 
     const key = `models/${req.file.filename}`;
-    const contentType = mime.contentType(path.extname(req.file.originalname)) || "application/octet-stream";
+    const contentType =
+      mime.contentType(path.extname(req.file.originalname)) ||
+      "application/octet-stream";
 
     await s3.send(
       new PutObjectCommand({
@@ -477,10 +491,16 @@ app.post("/debug-send", async (req, res) => {
       currency: "mxn",
       customer_email: to,
       customer_details: { email: to },
-      created: Math.floor(Date.now() / 1000)
+      created: Math.floor(Date.now() / 1000),
     };
     const fakeItems = [
-      { description: "Donación ARK", quantity: 1, amount_total: 1200, amount_subtotal: 1035, price: { unit_amount: 1200 } }
+      {
+        description: "Donación ARK",
+        quantity: 1,
+        amount_total: 1200,
+        amount_subtotal: 1035,
+        price: { unit_amount: 1200 },
+      },
     ];
 
     await sendReceiptEmail({ session: fakeSession, lineItems: fakeItems });

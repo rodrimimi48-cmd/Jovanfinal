@@ -124,12 +124,16 @@
   <!-- ===== Adaptador ESM (three r148+ usa jsm). Importa desde /vendor/three/* ===== -->
   <script type="module">
     try {
+      // Núcleo ESM
       const THREE_NS = await import('/vendor/three/build/three.module.js');
+
+      // Controles + loaders (ESM)
       const { OrbitControls } = await import('/vendor/three/examples/jsm/controls/OrbitControls.js');
       const { GLTFLoader }   = await import('/vendor/three/examples/jsm/loaders/GLTFLoader.js');
       const { OBJLoader }    = await import('/vendor/three/examples/jsm/loaders/OBJLoader.js');
       const { STLLoader }    = await import('/vendor/three/examples/jsm/loaders/STLLoader.js');
 
+      // Exponer como API global para tu script.js legacy (que usa THREE.*)
       window.THREE = THREE_NS;
       window.THREE.OrbitControls = OrbitControls;
       window.THREE.GLTFLoader    = GLTFLoader;
