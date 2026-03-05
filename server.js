@@ -1,5 +1,3 @@
-"use strict";
-
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -247,7 +245,7 @@ const s3 = new S3Client({
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, os.tmpdir()),
   filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname || "").toLowerCase() || ".bin";
+    const ext = path.extname(file.originalname).toLowerCase() || ".bin";
     cb(null, `${uuidv4()}${ext}`);
   },
 });
@@ -334,59 +332,18 @@ app.get("/videos", async (_req, res) => {
 });
 
 /* ============================ MODELOS 3D ============================ */
-/** Extensiones soportadas */
+/** Acepta extensiones comunes. Ojo: algunos navegadores suben OBJ/STL como application/octet-stream. */
 const allowedModelExt = new Set([".glb", ".gltf", ".obj", ".stl"]);
 
-/** MIME explícitos para modelos 3D (mejor que depender solo de mime-types) */
-const GLTF_MIME_MAP = {
-  ".gltf": "model/gltf+json",
-  ".glb":  "model/gltf-binary",
-  ".obj":  "text/plain",
-  ".stl":  "model/stl",
-};
-
-/** Upload de modelos con filtro robusto */
 const uploadModel = multer({
   storage,
-  limits: { fileSize: 1024 * 1024 * 200 }, // 200MB
+  limits: { fileSize: 1024 * 1024 * 100 }, // 100MB (ajusta a tu gusto)
   fileFilter: (req, file, cb) => {
-    const original = file.originalname || "";
-    let ext = (path.extname(original) || "").toLowerCase();
-    const mimeType = (file.mimetype || "").toLowerCase();
-
-    // ▸ Logs para diagnosticar
-    console.log("📦 Model recibido:", { original, ext, mimeType });
-
-    // Si la extensión viene vacía, intenta inferir por nombre
-    if (!ext) {
-      if (original.toLowerCase().endsWith(".glb")) ext = ".glb";
-      else if (original.toLowerCase().endsWith(".gltf")) ext = ".gltf";
-      else if (original.toLowerCase().endsWith(".obj")) ext = ".obj";
-      else if (original.toLowerCase().endsWith(".stl")) ext = ".stl";
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (!allowedModelExt.has(ext)) {
+      return cb(new Error("Solo se permiten modelos .glb, .gltf, .obj, .stl"));
     }
-
-    // Acepta por extensión conocida
-    if (allowedModelExt.has(ext)) {
-      console.log("✅ Extensión válida:", ext);
-      return cb(null, true);
-    }
-
-    // Fallback: algunos clientes setean un MIME útil sin extensión
-    const mimeHints = new Set([
-      "model/gltf+json",
-      "model/gltf-binary",
-      "model/stl",
-      "application/sla",              // STL
-      "application/vnd.ms-pki.stl",   // STL
-      "application/octet-stream"      // MUY común en navegadores
-    ]);
-
-    if (mimeHints.has(mimeType)) {
-      console.log("⚠️ Aceptado por MIME (sin extensión):", mimeType);
-      return cb(null, true);
-    }
-
-    return cb(new Error(`Formato no permitido. Usa .glb/.gltf/.obj/.stl (recibido ext="${ext}", mime="${mimeType}")`));
+    cb(null, true);
   },
 });
 
@@ -400,17 +357,8 @@ app.post("/upload-model", uploadModel.single("model"), async (req, res) => {
     if (!req.file)
       return res.status(400).json({ error: "No file 'model'" });
 
-    const original = req.file.originalname || "";
-    const ext = (path.extname(original) || "").toLowerCase();
     const key = `models/${req.file.filename}`;
-
-    // MIME explícito + fallback
-    const contentType =
-      GLTF_MIME_MAP[ext] ||
-      mime.contentType(ext) ||
-      "application/octet-stream";
-
-    console.log("🟢 SUBIENDO MODELO", { original, key, contentType });
+    const contentType = mime.contentType(path.extname(req.file.originalname)) || "application/octet-stream";
 
     await s3.send(
       new PutObjectCommand({
@@ -423,14 +371,14 @@ app.post("/upload-model", uploadModel.single("model"), async (req, res) => {
 
     fs.unlink(temp, () => {});
 
-    // URL prefirmada por 1 hora
+    // Te regreso también una URL prefirmada listita para usar 1 hora
     const url = await getSignedUrl(
       s3,
       new GetObjectCommand({ Bucket: process.env.S3_BUCKET, Key: key }),
       { expiresIn: 3600 }
     );
 
-    res.json({ ok: true, key, url, contentType });
+    res.json({ ok: true, key, url });
   } catch (err) {
     if (temp) fs.unlink(temp, () => {});
     res.status(500).json({ error: err.message });
