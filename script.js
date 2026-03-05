@@ -1,14 +1,9 @@
 //////////////////////
-// BASE DEL API
-//////////////////////
-const API_BASE = window.location.origin; // mismo host/puerto del server
-
-//////////////////////
 // 2FA SIMPLE
 //////////////////////
 const codigoCorrecto = "123456";
 
-function verificarCodigo() {
+function verificarCodigo(){
   const codigo = document.getElementById("codigo").value;
   const msg = document.getElementById("verificacion-msg");
 
@@ -44,7 +39,7 @@ window.initMap = initMap;
 //////////////////////
 // IA DINOSAURIOS
 //////////////////////
-async function preguntarIA() {
+async function preguntarIA(){
   const pregunta = document.getElementById("pregunta").value;
   const respuestaBox = document.getElementById("respuesta");
 
@@ -52,14 +47,15 @@ async function preguntarIA() {
   respuestaBox.innerText = "Cargando...";
 
   try {
-    const res = await fetch(`${API_BASE}/chat`, {
+    const res = await fetch("/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pregunta }),
+      body: JSON.stringify({ pregunta })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Error desconocido");
     respuestaBox.innerText = data.respuesta;
+
   } catch (error) {
     respuestaBox.innerText = "Error IA: " + error.message;
   }
@@ -68,7 +64,7 @@ async function preguntarIA() {
 //////////////////////
 // YOUTUBE
 //////////////////////
-async function cargarVideosYouTube() {
+async function cargarVideosYouTube(){
   const contenedor = document.getElementById("youtube-videos");
   const errorBox = document.getElementById("youtube-error");
 
@@ -76,7 +72,7 @@ async function cargarVideosYouTube() {
   errorBox.innerText = "Cargando videos...";
 
   try {
-    const res = await fetch(`${API_BASE}/youtube`);
+    const res = await fetch("/youtube");
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Error desconocido");
     errorBox.innerText = "";
@@ -86,7 +82,7 @@ async function cargarVideosYouTube() {
       return;
     }
 
-    data.items.forEach((item) => {
+    data.items.forEach(item => {
       if (item.id.kind === "youtube#video") {
         contenedor.innerHTML += `
           <div class="video">
@@ -101,6 +97,7 @@ async function cargarVideosYouTube() {
         `;
       }
     });
+
   } catch (err) {
     errorBox.innerText = "Error YouTube: " + err.message;
   }
@@ -109,7 +106,7 @@ async function cargarVideosYouTube() {
 //////////////////////
 // FACEBOOK
 //////////////////////
-async function cargarPostsFacebook() {
+async function cargarPostsFacebook(){
   const contenedor = document.getElementById("facebook-posts");
   const errorBox = document.getElementById("facebook-error");
 
@@ -117,7 +114,7 @@ async function cargarPostsFacebook() {
   errorBox.innerText = "Cargando publicaciones...";
 
   try {
-    const res = await fetch(`${API_BASE}/facebook`);
+    const res = await fetch("/facebook");
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Error desconocido");
     errorBox.innerText = "";
@@ -127,7 +124,7 @@ async function cargarPostsFacebook() {
       return;
     }
 
-    data.data.forEach((post) => {
+    data.data.forEach(post => {
       contenedor.innerHTML += `
         <div class="fb-post">
           <p>${post.message || "[Sin mensaje]"}</p>
@@ -137,6 +134,7 @@ async function cargarPostsFacebook() {
         </div>
       `;
     });
+
   } catch (err) {
     errorBox.innerText = "Error Facebook: " + err.message;
   }
@@ -146,38 +144,46 @@ async function cargarPostsFacebook() {
 // STREAMING (Cloudflare R2) — con “player” principal
 //////////////////////
 function getFileNameFromKey(key) {
-  try { return (key || "").split("/").pop() || key || "archivo"; }
-  catch { return key || "archivo"; }
+  try { return (key || '').split('/').pop() || key || 'archivo'; }
+  catch { return key || 'archivo'; }
 }
-function formatBytes(bytes) {
-  if (bytes === undefined || bytes === null) return "";
-  const u = ["B", "KB", "MB", "GB", "TB"];
+function formatBytes(bytes){
+  if (bytes === undefined || bytes === null) return '';
+  const u = ['B','KB','MB','GB','TB'];
   let i = 0, v = bytes;
   while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
   return `${v.toFixed(v < 10 && i > 1 ? 1 : 0)} ${u[i]}`;
 }
 
-function setFeatured(videoObj) {
-  const mainVideo = document.getElementById("main-video");
-  const mainFilename = document.getElementById("main-filename");
-  const mainExtra = document.getElementById("main-extra");
+function setFeatured(videoObj){
+  const mainVideo    = document.getElementById('main-video');
+  const mainFilename = document.getElementById('main-filename');
+  const mainExtra    = document.getElementById('main-extra');
   if (!mainVideo) return;
 
+  // Pausa y asigna nueva fuente
   try { mainVideo.pause(); } catch {}
-  mainVideo.src = videoObj?.url || "";
+  mainVideo.src = videoObj?.url || '';
   mainVideo.currentTime = 0;
 
-  mainVideo.play().catch(() => {});
+  // Reproduce automáticamente al cambiar (si el navegador lo permite)
+  mainVideo.play().catch(()=>{});
 
-  const name = getFileNameFromKey(videoObj?.key || "");
-  const size = formatBytes(videoObj?.size);
-  const fecha = videoObj?.lastModified ? new Date(videoObj.lastModified).toLocaleString() : "";
-  mainFilename.textContent = name || "Video";
-  mainExtra.textContent = `${size ? `Tamaño: ${size} · ` : ""}${fecha ? `Modificado: ${fecha}` : ""}`;
+  // Metadata visible
+  const name  = getFileNameFromKey(videoObj?.key || '');
+  const size  = formatBytes(videoObj?.size);
+  const fecha = videoObj?.lastModified ? new Date(videoObj.lastModified).toLocaleString() : '';
+  mainFilename.textContent = name || 'Video';
+  mainExtra.textContent    = `${size ? `Tamaño: ${size} · ` : ''}${fecha ? `Modificado: ${fecha}` : ''}`;
 
-  document.querySelector(".player")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  // Scroll suave al player (mejor UX en móvil)
+  document.querySelector('.player')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+/**
+ * Carga la lista de videos.
+ * @param {string} [keepKey] - Si se indica, mantiene seleccionado ese video como "featured".
+ */
 async function loadVideos(keepKey) {
   const grid = document.getElementById("videos-grid");
   if (!grid) return;
@@ -185,7 +191,7 @@ async function loadVideos(keepKey) {
   grid.innerHTML = "Cargando...";
 
   try {
-    const r = await fetch(`${API_BASE}/videos`);
+    const r = await fetch("/videos");
     const data = await r.json();
     grid.innerHTML = "";
 
@@ -196,9 +202,10 @@ async function loadVideos(keepKey) {
       return;
     }
 
+    // ✅ Mantener selección si llega keepKey; si no, usar el primero
     let featured = videos[0];
     if (keepKey) {
-      const found = videos.find((v) => v.key === keepKey);
+      const found = videos.find(v => v.key === keepKey);
       if (found) featured = found;
     }
     setFeatured(featured);
@@ -209,8 +216,9 @@ async function loadVideos(keepKey) {
       const card = document.createElement("div");
       card.className = "video-card";
       card.style.maxWidth = "360px";
-      card.title = v.key;
+      card.title = v.key; // tooltip con la key completa
 
+      // Miniatura con src correcto
       card.innerHTML = `
         <div class="video-wrap">
           <video class="hover-video" muted playsinline preload="metadata" src="${v.url}"></video>
@@ -229,16 +237,17 @@ async function loadVideos(keepKey) {
 
         <div class="video-meta">
           <div><b>Tamaño:</b> ${formatBytes(v.size)}</div>
-          <div><b>Modificado:</b> ${v.lastModified ? new Date(v.lastModified).toLocaleString() : ""}</div>
+          <div><b>Modificado:</b> ${v.lastModified ? new Date(v.lastModified).toLocaleString() : ''}</div>
         </div>
       `;
 
+      // Hover preview
       const thumb = card.querySelector(".hover-video");
       if (thumb) {
         card.addEventListener("mouseenter", () => {
           thumb.currentTime = 0;
           const p = thumb.play();
-          if (p && typeof p.catch === "function") p.catch(() => {});
+          if (p && typeof p.catch === "function") p.catch(()=>{});
         });
         card.addEventListener("mouseleave", () => {
           thumb.pause();
@@ -246,13 +255,14 @@ async function loadVideos(keepKey) {
         });
       }
 
+      // Click -> ver en grande (y si expira la URL, recarga manteniendo selección)
       card.addEventListener("click", async () => {
         setFeatured(v);
         try {
-          const head = await fetch(v.url, { method: "HEAD" });
+          const head = await fetch(v.url, { method: 'HEAD' });
           if (!head.ok) throw new Error(String(head.status));
         } catch {
-          await loadVideos(v.key);
+          await loadVideos(v.key); // 👈 preserva el seleccionado
         }
       });
 
@@ -267,8 +277,8 @@ async function loadVideos(keepKey) {
 async function handleUpload(e) {
   e.preventDefault();
   const status = document.getElementById("upload-status");
-  const input = document.getElementById("video");
-  const file = input?.files?.[0];
+  const input  = document.getElementById("video");
+  const file   = input?.files?.[0];
   if (!file) return;
 
   status.textContent = "Subiendo...";
@@ -277,12 +287,12 @@ async function handleUpload(e) {
     const fd = new FormData();
     fd.append("video", file);
 
-    const r = await fetch(`${API_BASE}/upload`, { method: "POST", body: fd });
+    const r = await fetch("/upload", { method: "POST", body: fd });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || "Error de subida");
 
     status.textContent = "✓ Subido";
-    await loadVideos();
+    await loadVideos(); // primera carga post-subida: pondrá el más reciente (tu server ordena)
   } catch (err) {
     status.textContent = "Error: " + err.message;
   } finally {
@@ -296,355 +306,16 @@ async function handleUpload(e) {
 //////////////////////
 async function pagar() {
   try {
-    const emailInput = document.getElementById("buyerEmail");
-    const buyerEmail = (emailInput?.value || "").trim();
-    if (!buyerEmail) {
-      alert("Ingresa tu correo para enviarte el ticket.");
-      emailInput?.focus();
-      return;
-    }
-
-    const items = [{ name: "Donación ARK", qty: 1, price: 12.0 }];
-
-    const res = await fetch(`${window.location.origin}/crear-pago`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ buyerEmail, items }),
-    });
-
-    if (!res.ok) {
-      const txt = await res.text().catch(() => "");
-      throw new Error(`HTTP ${res.status} ${txt}`);
-    }
-
+    const res = await fetch("/crear-pago", { method: "POST" });
     const data = await res.json();
     if (data?.url) {
       window.location.href = data.url;
     } else {
-      alert("No se pudo iniciar el pago (sin URL de Stripe)");
+      alert("No se pudo iniciar el pago");
     }
   } catch (e) {
     alert("Error al iniciar pago: " + e.message);
-    console.error("❌ /crear-pago error:", e);
   }
-}
-
-//////////////////////
-// VISOR 3D (Three.js)
-//////////////////////
-let scene, camera, renderer, model, threeContainer, controls;
-let lastBgDark = true;
-
-/** Overlay de estado en el visor */
-function setModelStatus(msg) {
-  const container = document.getElementById("viewer3d");
-  if (!container) return;
-  let box = document.getElementById("model-status");
-  if (!box) {
-    box = document.createElement("div");
-    box.id = "model-status";
-    box.style.position = "absolute";
-    box.style.left = "12px";
-    box.style.bottom = "12px";
-    box.style.background = "rgba(0,0,0,.6)";
-    box.style.color = "#fff";
-    box.style.padding = "6px 10px";
-    box.style.borderRadius = "8px";
-    box.style.fontSize = "12px";
-    container.style.position = "relative";
-    container.appendChild(box);
-  }
-  box.textContent = msg || "";
-}
-
-function init3D() {
-  threeContainer = document.getElementById("viewer3d");
-  if (!threeContainer || !window.THREE) return; // si no existe el div o no cargó three.js, no iniciar
-
-  scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x111111);
-
-  camera = new THREE.PerspectiveCamera(
-    60,
-    threeContainer.clientWidth / threeContainer.clientHeight,
-    0.1,
-    2000
-  );
-  camera.position.set(2, 2, 4);
-
-  renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
-  threeContainer.innerHTML = ""; // limpia si había algo
-  threeContainer.appendChild(renderer.domElement);
-
-  // Luces
-  const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.9);
-  hemi.position.set(0, 1, 0);
-  scene.add(hemi);
-
-  const dir = new THREE.DirectionalLight(0xffffff, 0.9);
-  dir.position.set(5, 10, 7);
-  scene.add(dir);
-
-  // Controles de órbita (si está cargado el script)
-  if (THREE.OrbitControls) {
-    controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
-    controls.target.set(0, 0, 0);
-  }
-
-  // Drag & Drop
-  threeContainer.addEventListener("dragover", (e) => {
-    e.preventDefault();
-    setModelStatus("Suelta el archivo para cargar…");
-  });
-  threeContainer.addEventListener("dragleave", () => {
-    setModelStatus("Arrastra aquí un .glb/.gltf o usa el botón.");
-  });
-  threeContainer.addEventListener("drop", (e) => {
-    e.preventDefault();
-    if (!e.dataTransfer.files?.length) return;
-    const file = e.dataTransfer.files[0];
-    cargarArchivo3D(file);
-  });
-
-  animate3D();
-
-  // Resize
-  window.addEventListener("resize", onResize3D);
-
-  // Mensaje inicial
-  setModelStatus("Arrastra aquí un .glb/.gltf o usa “Cargar modelo 3D”.");
-}
-
-function onResize3D() {
-  if (!renderer || !camera || !threeContainer) return;
-  const w = threeContainer.clientWidth;
-  const h = threeContainer.clientHeight;
-  camera.aspect = w / h;
-  camera.updateProjectionMatrix();
-  renderer.setSize(w, h);
-}
-
-function animate3D() {
-  requestAnimationFrame(animate3D);
-  if (controls) controls.update();
-  if (renderer && scene && camera) renderer.render(scene, camera);
-}
-
-function clearModel3D() {
-  if (!model) return;
-  scene.remove(model);
-  model.traverse?.((c) => {
-    if (c.geometry) c.geometry.dispose?.();
-    if (c.material) {
-      if (Array.isArray(c.material)) c.material.forEach((m) => m.dispose?.());
-      else c.material.dispose?.();
-    }
-    if (c.texture) c.texture.dispose?.();
-  });
-  model = null;
-}
-
-function fitModel(object3D) {
-  // centra y escala el modelo para que quepa en cámara
-  const box = new THREE.Box3().setFromObject(object3D);
-  const size = new THREE.Vector3();
-  const center = new THREE.Vector3();
-  box.getSize(size);
-  box.getCenter(center);
-
-  // Re-centra el modelo al origen (trasladar -center)
-  object3D.position.x -= center.x;
-  object3D.position.y -= center.y;
-  object3D.position.z -= center.z;
-
-  // Calcula distancia para encuadre
-  const maxDim = Math.max(size.x, size.y, size.z) || 1;
-  const fov = camera.fov * (Math.PI / 180);
-  const dist = maxDim / (2 * Math.tan(fov / 2));
-  camera.position.set(0, maxDim * 0.5, dist * 1.4);
-  camera.near = Math.max(0.1, dist / 1000);
-  camera.far = dist * 100;
-  camera.updateProjectionMatrix();
-
-  if (controls) {
-    controls.target.set(0, 0, 0);
-    controls.update();
-  } else {
-    camera.lookAt(0, 0, 0);
-  }
-}
-
-function cargarModelo3D(){
-  const fileInput = document.getElementById('modelInput');
-  const file = fileInput?.files?.[0];
-  if (!file) { alert('Selecciona un modelo 3D (.gltf, .glb).'); return; }
-  const ext = (file.name||'').split('.').pop().toLowerCase();
-  // 1) Preferir THREE + loaders locales
-  if (window.THREE && (THREE.GLTFLoader || THREE.OBJLoader || THREE.STLLoader)) {
-    cargarArchivo3D(file);
-    return;
-  }
-  // 2) Fallback: <model-viewer>
-  const mv = document.getElementById('mv');
-  if (mv && (ext==='glb' || ext==='gltf')){
-    cargarArchivo3D_conModelViewer(file);
-    return;
-  }
-  alert('No hay loader disponible para este formato.');
-}
-
-function cargarArchivo3D(file) {
-  const url = URL.createObjectURL(file);
-  const ext = (file.name || "").split(".").pop().toLowerCase();
-  cargarUrl3D(url, ext, () => URL.revokeObjectURL(url));
-}
-
-function cargarUrl3D(url, ext, done) {
-  try {
-    setModelStatus("Cargando… 0%");
-    // Limpia modelo anterior
-    clearModel3D();
-
-    const onProgress = (xhr) => {
-      if (!xhr?.lengthComputable) return;
-      const p = Math.min(100, Math.round((xhr.loaded / xhr.total) * 100));
-      setModelStatus(`Cargando… ${p}%`);
-    };
-    const onError = (err) => {
-      console.error("❌ Error cargando modelo:", err);
-      setModelStatus("Error cargando modelo.");
-      done?.();
-    };
-
-    if ((ext === "gltf" || ext === "glb") && THREE.GLTFLoader) {
-      const loader = new THREE.GLTFLoader();
-      loader.load(
-        url,
-        (gltf) => {
-          model = gltf.scene || gltf.scenes?.[0];
-          scene.add(model);
-          fitModel(model);
-          setModelStatus("Listo ✔");
-          done?.();
-        },
-        onProgress,
-        onError
-      );
-    } else if (ext === "obj" && THREE.OBJLoader) {
-      const loader = new THREE.OBJLoader();
-      loader.load(
-        url,
-        (obj) => {
-          model = obj;
-          scene.add(model);
-          fitModel(model);
-          setModelStatus("Listo ✔");
-          done?.();
-        },
-        onProgress,
-        onError
-      );
-    } else if (ext === "stl" && THREE.STLLoader) {
-      const loader = new THREE.STLLoader();
-      loader.load(
-        url,
-        (geometry) => {
-          const material = new THREE.MeshStandardMaterial({
-            color: 0x888888,
-            metalness: 0.1,
-            roughness: 0.8,
-          });
-          model = new THREE.Mesh(geometry, material);
-          scene.add(model);
-          fitModel(model);
-          setModelStatus("Listo ✔");
-          done?.();
-        },
-        onProgress,
-        onError
-      );
-    } else {
-      alert("Formato no compatible o loader no disponible. Usa .glb/.gltf o agrega los loaders de OBJ/STL en el HTML.");
-      setModelStatus("Formato no soportado.");
-      done?.();
-    }
-  } catch (e) {
-    console.error(e);
-    setModelStatus("Error inesperado cargando modelo.");
-    done?.();
-  }
-}
-
-function resetCamara3D() {
-  if (!model) return;
-  fitModel(model);
-}
-
-function toggleFondo3D() {
-  lastBgDark = !lastBgDark;
-  scene.background = new THREE.Color(lastBgDark ? 0x111111 : 0xf3f3f3);
-}
-
-//////////////////////
-// Fallback <model-viewer>
-//////////////////////
-function hasModelViewer(){
-  return !!(window.customElements && window.customElements.get && window.customElements.get('model-viewer'));
-}
-function ensureModelViewer(){
-  let mv = document.getElementById('mv');
-  if (!mv) {
-    const host = document.getElementById('viewer3d');
-    if (!host) return null;
-    mv = document.createElement('model-viewer');
-    mv.id = 'mv';
-    mv.setAttribute('camera-controls','');
-    mv.setAttribute('auto-rotate','');
-    mv.setAttribute('shadow-intensity','1');
-    mv.setAttribute('exposure','1.0');
-    mv.style.width = '100%';
-    mv.style.height = '100%';
-    mv.style.display = 'block';
-    mv.style.borderRadius = '10px';
-    host.innerHTML = '';
-    host.appendChild(mv);
-  }
-  return mv;
-}
-function mvSetStatus(msg){ try { setModelStatus(msg); } catch(_){} }
-function cargarArchivo3D_conModelViewer(file){
-  const mv = ensureModelViewer();
-  if (!mv) { alert('No se pudo crear <model-viewer>'); return; }
-  try{
-    const url = URL.createObjectURL(file);
-    mvSetStatus('Cargando…');
-    const onLoad = ()=>{ URL.revokeObjectURL(url); mv.removeEventListener('load', onLoad); mvSetStatus('Listo ✔'); };
-    mv.addEventListener('load', onLoad);
-    mv.src = url;
-  }catch(e){ console.error(e); mvSetStatus('Error cargando modelo'); }
-}
-
-//////////////////////
-// Espera a que ESM de THREE esté listo
-//////////////////////
-function waitForThreeThenInit(maxMs=3000){
-  const start = Date.now();
-  const tick = ()=>{
-    if (window.THREE && (THREE.GLTFLoader || THREE.OBJLoader || THREE.STLLoader)) {
-      init3D();
-      return;
-    }
-    if (Date.now() - start > maxMs) {
-      console.warn('[3D] THREE no está listo aún; el visor se iniciará al cargar un modelo o tras refrescar.');
-      return;
-    }
-    setTimeout(tick, 100);
-  };
-  tick();
 }
 
 //////////////////////
@@ -661,14 +332,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!mainVideo) return;
     if (e.code === "Space") {
       e.preventDefault();
-      if (mainVideo.paused) mainVideo.play().catch(() => {});
+      if (mainVideo.paused) mainVideo.play().catch(()=>{});
       else mainVideo.pause();
     }
   });
 
-  // Carga inicial de videos
-  loadVideos();
-
-  // Inicia visor 3D (espera a que el adaptador ESM cargue THREE)
-  waitForThreeThenInit();
+  loadVideos(); // primera carga: destaca el primero
 });
