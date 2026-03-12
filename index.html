@@ -3,29 +3,25 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Ark</title>
+  <title>ARK</title>
 
   <!-- Estilos principales -->
   <link rel="stylesheet" href="style.css" />
+  <!-- Mapbox GL JS (CSS) -->
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.css" rel="stylesheet">
 
   <style>
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color:#222; }
     .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
-    #map { width: 100%; height: 400px; margin-top: 10px; border-radius: 10px; }
+    #map, #map3d { width: 100%; height: 400px; margin-top: 10px; border-radius: 10px; }
     .error { color: #ff4a4a; font-weight: bold; margin-top: 10px; }
     .social-buttons { display:flex; gap:8px; margin-bottom:6px; }
+
     .player { margin-top: 8px; display:grid; gap:8px; }
     .player-wrap { position: relative; border-radius: 10px; overflow: hidden; background:#000; }
     .player-wrap video { width:100%; height:auto; display:block; background:#000; }
     .player-overlay { position:absolute; left:10px; bottom:10px; background:rgba(0,0,0,.6); color:#fff; padding:6px 10px; border-radius:8px; font-size:12px;}
     .player-meta { color:#444; font-size:14px; }
-
-    #viewer3d { position: relative; width:100%; height:400px; background:#111; border-radius:10px; }
-    #model-status{
-      position:absolute; left:12px; bottom:12px;
-      background:rgba(0,0,0,.6); color:#fff;
-      padding:6px 10px; border-radius:8px; font-size:12px;
-    }
 
     /* Grid de videos */
     #videos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-top: 8px; }
@@ -45,7 +41,6 @@
 </head>
 <body>
   <div class="overlay"></div>
-
   <div class="container">
     <h1>ARK</h1>
 
@@ -55,7 +50,6 @@
       <button onclick="cargarVideosYouTube()">Ver videos YouTube</button>
       <button onclick="cargarPostsFacebook()">Ver posts Facebook</button>
     </div>
-
     <div id="youtube-videos" class="social-embed"></div>
     <div id="facebook-posts" class="social-embed"></div>
     <p id="youtube-error" class="error"></p>
@@ -67,7 +61,7 @@
     <button onclick="verificarCodigo()">Verificar</button>
     <p id="verificacion-msg"></p>
 
-    <!-- MAPA -->
+    <!-- MAPA (Google Maps 2D) -->
     <h2>Mapa</h2>
     <div id="map"></div>
     <p id="map-error" class="error"></p>
@@ -97,10 +91,8 @@
     <p style="text-align:center; margin: 0 0 10px;">
       Si te gusta este proyecto, puedes apoyar con una donación. 🙌
     </p>
-
     <!-- CORREO -->
     <input id="buyerEmail" type="email" placeholder="Tu correo para enviarte el ticket" required />
-
     <div style="display:flex; justify-content:center; margin-bottom: 20px;">
       <button onclick="pagar()">💳 Pagar $12 MXN</button>
     </div>
@@ -113,37 +105,21 @@
       <button type="submit">Subir video</button>
       <p id="upload-status"></p>
     </form>
-
     <button id="refreshBtn" type="button">Actualizar lista</button>
     <div id="videos-grid"></div>
 
-    <!-- VISUALIZADOR 3D -->
-    <h2>Modelo 3D</h2>
-    <div id="viewer3d">
-      <div id="model-status">
-        Arrastra aquí un .glb/.gltf o usa “Cargar modelo 3D”
-      </div>
-    </div>
-
-    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
-      <input type="file" id="modelInput" accept=".gltf,.glb,.obj,.stl" />
-      <button onclick="cargarModelo3D()">Cargar modelo 3D</button>
-      <button onclick="resetCamara3D()">Reset cámara</button>
-      <button onclick="toggleFondo3D()">Fondo claro/oscuro</button>
-    </div>
+    <!-- MAPA 3D (Mapbox GL JS) -->
+    <h2>Mapa 3D</h2>
+    <div id="map3d"></div>
   </div>
-
-  <!-- THREE.js + loaders (necesarios para el visor 3D) -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/controls/OrbitControls.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/loaders/GLTFLoader.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/loaders/OBJLoader.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/loaders/STLLoader.js"></script>
 
   <!-- JS PRINCIPAL -->
   <script src="script.js"></script>
 
-  <!-- Google Maps -->
+  <!-- Mapbox GL JS (JS) -->
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.js"></script>
+
+  <!-- Google Maps (tu mapa 2D de siempre) -->
   <script>
     function gm_authFailure() {
       document.getElementById("map-error").innerText =

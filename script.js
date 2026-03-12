@@ -1,19 +1,13 @@
 "use strict";
 
-/***********************
- * BASE DEL API
- ***********************/
+/*************** BASE DEL API ****************/
 const API_BASE = window.location.origin; // mismo host/puerto del server
 
-/***********************
- * 2FA SIMPLE
- ***********************/
+/***************** 2FA SIMPLE ****************/
 const codigoCorrecto = "123456";
-
 function verificarCodigo() {
   const codigo = document.getElementById("codigo").value;
   const msg = document.getElementById("verificacion-msg");
-
   if (codigo === codigoCorrecto) {
     msg.innerText = "Verificación correcta ✅";
     msg.style.color = "green";
@@ -23,18 +17,14 @@ function verificarCodigo() {
   }
 }
 
-/***********************
- * GOOGLE MAPS
- ***********************/
+/**************** GOOGLE MAPS ****************/
 function initMap() {
   try {
     const ubicacion = { lat: 19.4326, lng: -99.1332 };
-
     const map = new google.maps.Map(document.getElementById("map"), {
       zoom: 10,
       center: ubicacion,
     });
-
     new google.maps.Marker({ position: ubicacion, map });
   } catch (error) {
     document.getElementById("map-error").innerText =
@@ -43,61 +33,49 @@ function initMap() {
 }
 window.initMap = initMap;
 
-/***********************
- * IA DINOSAURIOS
- ***********************/
+/************** IA DINOSAURIOS **************/
 async function preguntarIA() {
   const pregunta = document.getElementById("pregunta").value;
   const respuestaBox = document.getElementById("respuesta");
-
   if (!pregunta) return;
   respuestaBox.innerText = "Cargando...";
-
   try {
     const res = await fetch(`${API_BASE}/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pregunta }),
     });
-
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-
     respuestaBox.innerText = data.respuesta || "Sin respuesta";
   } catch (error) {
     respuestaBox.innerText = "Error IA: " + error.message;
   }
 }
 
-/***********************
- * YOUTUBE
- ***********************/
+/****************** YOUTUBE ******************/
 async function cargarVideosYouTube() {
   const contenedor = document.getElementById("youtube-videos");
   const errorBox = document.getElementById("youtube-error");
-
   contenedor.innerHTML = "";
   errorBox.innerText = "Cargando videos...";
-
   try {
     const res = await fetch(`${API_BASE}/youtube`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Error desconocido");
     errorBox.innerText = "";
-
     if (!data.items || data.items.length === 0) {
       errorBox.innerText = "No se encontraron videos.";
       return;
     }
-
     data.items.forEach((item) => {
       if (item.id && item.id.kind === "youtube#video") {
         const vid = item.id.videoId;
         const title = item.snippet?.title || "Video";
-
         contenedor.innerHTML += `
           <div class="video">
-            https://www.youtube.com/embed/${vid}" 
+            <iframe
+              src="https://www.youtube.com/embed/${vid}"
               title="${title}"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
@@ -111,41 +89,33 @@ async function cargarVideosYouTube() {
   }
 }
 
-/***********************
- * FACEBOOK
- ***********************/
+/***************** FACEBOOK ******************/
 function escapeHtml(s = "") {
-  return s.replace(/[&<>"']/g, (c) => (
+  return s.replace(/[&<>\"']/g, (c) => (
     { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
   ));
 }
-
 async function cargarPostsFacebook() {
   const contenedor = document.getElementById("facebook-posts");
   const errorBox = document.getElementById("facebook-error");
-
   contenedor.innerHTML = "";
   errorBox.innerText = "Cargando publicaciones...";
-
   try {
     const res = await fetch(`${API_BASE}/facebook`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Error desconocido");
     errorBox.innerText = "";
-
     if (!data.data || data.data.length === 0) {
       errorBox.innerText = "No se encontraron publicaciones.";
       return;
     }
-
     data.data.forEach((post) => {
       const msg = post.message ? escapeHtml(post.message) : "[Sin mensaje]";
       const link = post.permalink_url || "#";
-
       contenedor.innerHTML += `
         <div class="fb-post">
           <p>${msg}</p>
-          ${link}" target="_blank" rel="noopener noreferrer">Ver en Facebook</a>
+          <a href="${link}" target="_blank" rel="noopener noreferrer">Ver en Facebook</a>
         </div>
       `;
     });
@@ -154,9 +124,7 @@ async function cargarPostsFacebook() {
   }
 }
 
-/***********************
- * STREAMING (Cloudflare R2) — con “player” principal
- ***********************/
+/******** STREAMING (Cloudflare R2) *********/
 function getFileNameFromKey(key) {
   try { return (key || "").split("/").pop() || key || "archivo"; }
   catch { return key || "archivo"; }
@@ -168,49 +136,39 @@ function formatBytes(bytes) {
   while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
   return `${v.toFixed(v < 10 && i > 1 ? 1 : 0)} ${u[i]}`;
 }
-
 function setFeatured(videoObj) {
   const mainVideo = document.getElementById("main-video");
   const mainFilename = document.getElementById("main-filename");
   const mainExtra = document.getElementById("main-extra");
   if (!mainVideo) return;
-
   try { mainVideo.pause(); } catch {}
   mainVideo.src = videoObj?.url || "";
   mainVideo.currentTime = 0;
   // Autoplay cross-browser
   mainVideo.muted = true;
   mainVideo.play().catch(() => {});
-
   const name = getFileNameFromKey(videoObj?.key || "");
   const size = formatBytes(videoObj?.size);
   const fecha = videoObj?.lastModified ? new Date(videoObj.lastModified).toLocaleString() : "";
   mainFilename.textContent = name || "Video";
   mainExtra.textContent = `${size ? `Tamaño: ${size} · ` : ""}${fecha ? `Modificado: ${fecha}` : ""}`;
-
   document.querySelector(".player")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
-
 async function loadVideos(keepKey) {
   const grid = document.getElementById("videos-grid");
   if (!grid) return;
-
   grid.innerHTML = "Cargando...";
-
   try {
     const r = await fetch(`${API_BASE}/videos`);
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
-
     grid.innerHTML = "";
-
     const videos = data.videos || [];
     if (!videos.length) {
       grid.innerHTML = "<em>Sin videos</em>";
       setFeatured({ url: "", key: "", size: 0, lastModified: null });
       return;
     }
-
     let featured = videos[0];
     if (keepKey) {
       const found = videos.find((v) => v.key === keepKey);
@@ -220,34 +178,28 @@ async function loadVideos(keepKey) {
 
     videos.forEach((v) => {
       const fileName = getFileNameFromKey(v.key);
-
       const card = document.createElement("div");
       card.className = "video-card";
       card.style.maxWidth = "360px";
       card.title = v.key;
-
       card.innerHTML = `
         <div class="video-wrap">
           <video class="hover-video" src="${v.url}" muted loop playsinline preload="metadata"></video>
-
           <div class="play-badge" aria-hidden="true">
             <svg viewBox="0 0 100 100" fill="currentColor">
               <circle cx="50" cy="50" r="44" opacity=".25"></circle>
               <polygon points="40,30 75,50 40,70"></polygon>
             </svg>
           </div>
-
           <div class="video-overlay">
             <span class="video-filename">${fileName}</span>
           </div>
         </div>
-
         <div class="video-meta">
           <div><b>Tamaño:</b> ${formatBytes(v.size)}</div>
           <div><b>Modificado:</b> ${v.lastModified ? new Date(v.lastModified).toLocaleString() : ""}</div>
         </div>
       `;
-
       const thumb = card.querySelector(".hover-video");
       if (thumb) {
         card.addEventListener("mouseenter", () => {
@@ -260,7 +212,6 @@ async function loadVideos(keepKey) {
           thumb.currentTime = 0;
         });
       }
-
       card.addEventListener("click", async () => {
         setFeatured(v);
         try {
@@ -270,7 +221,6 @@ async function loadVideos(keepKey) {
           await loadVideos(v.key);
         }
       });
-
       grid.appendChild(card);
     });
   } catch (e) {
@@ -278,24 +228,19 @@ async function loadVideos(keepKey) {
     console.error(e);
   }
 }
-
 async function handleUpload(e) {
   e.preventDefault();
   const status = document.getElementById("upload-status");
   const input = document.getElementById("video");
   const file = input?.files?.[0];
   if (!file) return;
-
   status.textContent = "Subiendo...";
-
   try {
     const fd = new FormData();
     fd.append("video", file);
-
     const r = await fetch(`${API_BASE}/upload`, { method: "POST", body: fd });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || "Error de subida");
-
     status.textContent = "✓ Subido";
     await loadVideos();
   } catch (err) {
@@ -306,9 +251,7 @@ async function handleUpload(e) {
   }
 }
 
-/***********************
- * PAGOS (Stripe Checkout)
- ***********************/
+/*********** PAGOS (Stripe Checkout) ***********/
 async function pagar() {
   try {
     const emailInput = document.getElementById("buyerEmail");
@@ -318,20 +261,16 @@ async function pagar() {
       emailInput?.focus();
       return;
     }
-
     const items = [{ name: "Donación ARK", qty: 1, price: 12.0 }];
-
     const res = await fetch(`${window.location.origin}/crear-pago`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ buyerEmail, items })
     });
-
     if (!res.ok) {
       const txt = await res.text().catch(() => "");
       throw new Error(`HTTP ${res.status} ${txt}`);
     }
-
     const data = await res.json();
     if (data?.url) {
       window.location.href = data.url;
@@ -344,178 +283,82 @@ async function pagar() {
   }
 }
 
-/***********************
- * VISOR 3D (Three.js)
- ***********************/
-let scene, camera, renderer, model, threeContainer, controls;
-let darkBg = true;
+/************* MAPA 3D (Mapbox GL JS) *************/
+const MAPBOX_TOKEN = "TU_MAPBOX_ACCESS_TOKEN"; // <-- pega aquí tu token público
+function initMap3D() {
+  try {
+    if (!window.mapboxgl) {
+      console.error("Mapbox GL JS no cargó.");
+      return;
+    }
+    mapboxgl.accessToken = MAPBOX_TOKEN;
 
-function init3D() {
-  threeContainer = document.getElementById("viewer3d");
-  if (!threeContainer || !window.THREE) return;
+    // Verificar soporte WebGL
+    if (!mapboxgl.supported()) {
+      console.warn("Mapbox GL no soportado en este navegador/dispositivo.");
+      return;
+    }
 
-  scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x111111);
-
-  camera = new THREE.PerspectiveCamera(
-    60,
-    threeContainer.clientWidth / threeContainer.clientHeight,
-    0.1,
-    2000
-  );
-  camera.position.set(2, 2, 4);
-
-  renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
-  threeContainer.innerHTML = "";
-  threeContainer.appendChild(renderer.domElement);
-
-  // Luces
-  const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.8);
-  hemi.position.set(0, 1, 0);
-  scene.add(hemi);
-
-  const dir = new THREE.DirectionalLight(0xffffff, 0.9);
-  dir.position.set(5, 10, 7);
-  scene.add(dir);
-
-  // Controles de órbita (si están disponibles)
-  if (THREE.OrbitControls) {
-    controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-  }
-
-  animate3D();
-
-  // Resize
-  window.addEventListener("resize", onResize3D);
-}
-
-function onResize3D() {
-  if (!renderer || !camera || !threeContainer) return;
-  const w = threeContainer.clientWidth;
-  const h = threeContainer.clientHeight;
-  camera.aspect = w / h;
-  camera.updateProjectionMatrix();
-  renderer.setSize(w, h);
-}
-
-function animate3D() {
-  requestAnimationFrame(animate3D);
-  if (model) model.rotation.y += 0.005;
-  if (controls) controls.update?.();
-  if (renderer && scene && camera) renderer.render(scene, camera);
-}
-
-function fitModel(object3D) {
-  const box = new THREE.Box3().setFromObject(object3D);
-  const size = new THREE.Vector3();
-  const center = new THREE.Vector3();
-  box.getSize(size);
-  box.getCenter(center);
-
-  object3D.position.x += (object3D.position.x - center.x);
-  object3D.position.y += (object3D.position.y - center.y);
-  object3D.position.z += (object3D.position.z - center.z);
-
-  const maxDim = Math.max(size.x, size.y, size.z);
-  const fov = camera.fov * (Math.PI / 180);
-  const dist = maxDim / (2 * Math.tan(fov / 2));
-  camera.position.set(0, maxDim * 0.5, dist * 1.4);
-  camera.lookAt(0, 0, 0);
-
-  controls?.target?.set(0, 0, 0);
-  controls?.update?.();
-}
-
-function cargarModelo3D() {
-  const fileInput = document.getElementById("modelInput");
-  const file = fileInput?.files?.[0];
-  if (!file) {
-    alert("Selecciona un modelo 3D (.gltf, .glb, .obj, .stl)");
-    return;
-  }
-  const url = URL.createObjectURL(file);
-  const ext = file.name.split(".").pop().toLowerCase();
-
-  if (!window.THREE) {
-    alert("No se cargó Three.js correctamente.");
-    return;
-  }
-
-  // Limpia modelo anterior
-  if (model) {
-    scene.remove(model);
-    model.traverse?.((c) => {
-      if (c.geometry) c.geometry.dispose?.();
-      if (c.material) {
-        if (Array.isArray(c.material)) c.material.forEach((m) => m.dispose?.());
-        else c.material.dispose?.();
-      }
+    // Centro en CDMX con inclinación y rotación para ver el 3D
+    const map3d = new mapboxgl.Map({
+      container: "map3d",
+      style: "mapbox://styles/mapbox/streets-v12", // puedes probar "satellite-streets-v12"
+      center: [-99.1332, 19.4326],
+      zoom: 14,
+      pitch: 60,
+      bearing: 40,
+      antialias: true
     });
-    model = null;
+
+    // Controles
+    map3d.addControl(new mapboxgl.NavigationControl());
+    map3d.addControl(new mapboxgl.FullscreenControl());
+    map3d.addControl(new mapboxgl.GeolocateControl({
+      positionOptions: { enableHighAccuracy: true },
+      trackUserLocation: true,
+      showAccuracyCircle: false
+    }));
+
+    // Terreno + edificios 3D + cielo
+    map3d.on("style.load", () => {
+      // Cielo/fog
+      map3d.setFog({
+        "range": [0.5, 10],
+        "color": "#d6e5fb",
+        "horizon-blend": 0.02
+      });
+
+      // Dem (terreno)
+      map3d.addSource("mapbox-dem", {
+        type: "raster-dem",
+        url: "mapbox://mapbox.mapbox-terrain-dem-v1",
+        tileSize: 512,
+        maxzoom: 14
+      });
+      map3d.setTerrain({ source: "mapbox-dem", exaggeration: 1.3 });
+
+      // Edificios 3D
+      map3d.addLayer({
+        id: "3d-buildings",
+        source: "composite",
+        "source-layer": "building",
+        filter: ["==", "extrude", "true"],
+        type: "fill-extrusion",
+        minzoom: 15,
+        paint: {
+          "fill-extrusion-color": "#aaa",
+          "fill-extrusion-height": ["get", "height"],
+          "fill-extrusion-base": ["get", "min_height"],
+          "fill-extrusion-opacity": 0.6
+        }
+      });
+    });
+  } catch (e) {
+    console.error("Error iniciando Mapbox 3D:", e);
   }
-
-  // Selecciona loader por extensión
-  if ((ext === "gltf" || ext === "glb") && THREE.GLTFLoader) {
-    const loader = new THREE.GLTFLoader();
-    loader.load(
-      url,
-      (gltf) => {
-        model = gltf.scene || gltf.scenes?.[0];
-        scene.add(model);
-        fitModel(model);
-      },
-      undefined,
-      (err) => alert("Error cargando GLTF/GLB: " + (err?.message || err))
-    );
-  } else if (ext === "obj" && THREE.OBJLoader) {
-    const loader = new THREE.OBJLoader();
-    loader.load(
-      url,
-      (obj) => {
-        model = obj;
-        scene.add(model);
-        fitModel(model);
-      },
-      undefined,
-      (err) => alert("Error cargando OBJ: " + (err?.message || err))
-    );
-  } else if (ext === "stl" && THREE.STLLoader) {
-    const loader = new THREE.STLLoader();
-    loader.load(
-      url,
-      (geometry) => {
-        const material = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.1, roughness: 0.8 });
-        model = new THREE.Mesh(geometry, material);
-        scene.add(model);
-        fitModel(model);
-      },
-      undefined,
-      (err) => alert("Error cargando STL: " + (err?.message || err))
-    );
-  } else {
-    alert("Formato no compatible o loader no disponible.");
-  }
 }
 
-function resetCamara3D() {
-  if (!camera) return;
-  camera.position.set(2, 2, 4);
-  camera.lookAt(0, 0, 0);
-  controls?.target?.set(0, 0, 0);
-  controls?.update?.();
-}
-
-function toggleFondo3D() {
-  darkBg = !darkBg;
-  if (scene) scene.background = new THREE.Color(darkBg ? 0x111111 : 0xf0f0f0);
-}
-
-/***********************
- * INIT
- ***********************/
+/********************* INIT *********************/
 document.addEventListener("DOMContentLoaded", () => {
   // Upload/lista
   document.getElementById("uploadForm")?.addEventListener("submit", handleUpload);
@@ -535,6 +378,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // Carga inicial de videos
   loadVideos();
 
-  // Inicia visor 3D
-  init3D();
+  // Inicia mapa 3D
+  initMap3D();
 });
