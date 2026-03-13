@@ -1,56 +1,135 @@
-<!DOCTYPE html>
-<div id="main-extra"></div>
-</div>
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Proyecto ARK — Video + Mapa 3D</title>
 
-</div>
+  <!-- Mapbox GL JS CSS -->
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.css" rel="stylesheet" />
 
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #0b0b0c;
+      --fg: #e8e8ea;
+      --muted: #9aa0a6;
+      --accent: #4f8cff;
+      --card: #15161a;
+      --border: #2a2c33;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: system-ui, Segoe UI, Roboto, Arial, sans-serif;
+      background: var(--bg); color: var(--fg);
+    }
+    header, main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+    header h1 { margin: 8px 0 4px; font-size: 1.4rem; }
+    header p { margin: 0; color: var(--muted); }
 
-<h2>Apoyar el proyecto</h2>
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin: 16px 0; }
+    .row { display: grid; gap: 12px; grid-template-columns: 1fr; }
+    .row-2 { display: grid; gap: 16px; grid-template-columns: 1fr 1fr; }
+    @media (max-width: 900px) { .row-2 { grid-template-columns: 1fr; } }
 
-<input id="buyerEmail" type="email" placeholder="Tu correo" required />
-<button onclick="pagar()">💳 Pagar $12 MXN</button>
+    input[type="email"], input[type="file"], button {
+      font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border);
+      background: transparent; color: var(--fg);
+    }
+    button {
+      cursor: pointer; background: var(--accent); color: white; border: none;
+      transition: filter .15s ease; font-weight: 600;
+    }
+    button:hover { filter: brightness(1.05); }
+    .muted { color: var(--muted); }
 
+    /* Player */
+    .player { display: grid; gap: 8px; }
+    .player video { width: 100%; max-height: 60vh; background: #000; border-radius: 12px; }
+    .meta { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 
-<h2>Subir video</h2>
+    /* Grid de videos */
+    #videos-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px;
+    }
+    .video-card { background: #0e0f13; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; cursor: pointer; }
+    .video-wrap { position: relative; aspect-ratio: 16 / 9; background: #000; }
+    .video-wrap video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .video-overlay {
+      position: absolute; left: 0; right: 0; bottom: 0; padding: 8px 10px;
+      background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,.7) 100%);
+      font-size: .9rem;
+    }
+    .play-badge {
+      position: absolute; inset: 0; display: grid; place-items: center; color: white; opacity: .0;
+      transition: opacity .15s ease;
+    }
+    .video-card:hover .play-badge { opacity: .9; }
+    .video-meta { display: flex; justify-content: space-between; padding: 10px; font-size: .85rem; color: var(--muted); }
 
-<form id="uploadForm" enctype="multipart/form-data">
+    /* Mapa 3D */
+    #map3d { width: 100%; height: 60vh; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Proyecto ARK</h1>
+    <p class="muted">Streaming de videos + Mapa 3D.</p>
+  </header>
 
-<input type="file" id="video" name="video" accept="video/mp4,video/webm,video/ogg" required />
+  <main>
+    <!-- Pagos -->
+    <section class="card">
+      <h2>Apoyar el proyecto</h2>
+      <div class="row">
+        <input id="buyerEmail" type="email" placeholder="Tu correo" required />
+        <button onclick="pagar()">💳 Pagar $12 MXN</button>
+      </div>
+    </section>
 
-<button type="submit">Subir video</button>
+    <!-- Player + Subida -->
+    <section class="card">
+      <div class="row-2">
+        <div>
+          <h2>Reproductor</h2>
+          <div class="player">
+            <video id="main-video" controls playsinline></video>
+            <div class="meta">
+              <strong id="main-filename">Selecciona un video</strong>
+              <span id="main-extra" class="muted"></span>
+            </div>
+          </div>
+        </div>
 
-<p id="upload-status"></p>
+        <div>
+          <h2>Subir video</h2>
+          <form id="uploadForm" enctype="multipart/form-data">
+            <input type="file" id="video" name="video" accept="video/mp4,video/webm,video/ogg" required />
+            <button type="submit">Subir video</button>
+            <p id="upload-status" class="muted"></p>
+          </form>
+          <button id="refreshBtn">Actualizar lista</button>
+        </div>
+      </div>
+    </section>
 
-</form>
+    <section class="card">
+      <h2>Videos</h2>
+      <div id="videos-grid"></div>
+    </section>
 
-<button id="refreshBtn">Actualizar lista</button>
+    <!-- Mapa 3D (sustituye el visor 3D nativo) -->
+    <section class="card">
+      <h2>Mapa 3D</h2>
+      <div id="map3d" aria-label="Mapa 3D"></div>
+    </section>
+  </main>
 
-<div id="videos-grid"></div>
+  <!-- Mapbox GL JS -->
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.js" defer></script>
 
-
-<h2>Mapa 3D</h2>
-<div id="map3d"></div>
-
-
-<h2>Visor de Modelos 3D</h2>
-
-<input type="file" id="modelFile" accept=".glb,.gltf,.obj,.stl">
-<button onclick="subirModelo()">Subir Modelo</button>
-
-<div id="viewer3d"></div>
-
-
-</div>
-
-
-<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/loaders/GLTFLoader.js"></script>
-
-<script src="script.js" defer></script>
-
-<script src="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.js" defer></script>
-
-<script src="https://maps.googleapis.com/maps/api/js?key=TU_GOOGLE_MAPS_API_KEY&callback=initMap" async defer></script>
-
+  <!-- Tu lógica -->
+  <script src="script.js" defer></script>
 </body>
 </html>

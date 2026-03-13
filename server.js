@@ -1,7 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const path = require("path"); // ✅ Ya está aquí. No volver a declararlo más abajo.
+const path = require("path");
 const axios = require("axios");
 
 // Streaming (Cloudflare R2)
@@ -20,9 +20,7 @@ const mime = require("mime-types");
 
 // Pagos Stripe
 const Stripe = require("stripe");
-const stripe = process.env.STRIPE_SECRET_KEY
-  ? Stripe(process.env.STRIPE_SECRET_KEY)
-  : null;
+const stripe = process.env.STRIPE_SECRET_KEY ? Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
 // Correo (opcional)
 let sendReceiptEmail = async () => {};
@@ -38,29 +36,9 @@ app.set("trust proxy", 1);
 /* ------------------------- UTIL ------------------------- */
 function getBaseUrl(req) {
   const proto = (req.headers["x-forwarded-proto"] || req.protocol || "http").split(",")[0].trim();
-  const host = (req.headers["x-forwarded-host"] || req.get("host") || "").split(",")[0].trim();
+  const host  = (req.headers["x-forwarded-host"]  || req.get("host") || "").split(",")[0].trim();
   return `${proto}://${host}`;
 }
-
-/* ------------------------- LOG VARS ------------------------- */
-console.log("===== VARIABLES DE ENTORNO =====");
-[
-  "HF_API_KEY",
-  "YOUTUBE_API_KEY",
-  "FB_PAGE_ID",
-  "FB_ACCESS_TOKEN",
-  "S3_BUCKET",
-  "S3_REGION",
-  "S3_ENDPOINT",
-  "S3_FORCE_PATH_STYLE",
-  "STRIPE_SECRET_KEY",
-  "STRIPE_WEBHOOK_SECRET",
-  "BASE_URL",
-  "SENDGRID_API_KEY",
-  "MAIL_FROM",
-  "SELLER_EMAIL"
-].forEach(v => console.log(v, process.env[v] ? "✅" : "❌"));
-console.log("=======================================================");
 
 /* ------------------------- MIDDLEWARES ------------------------- */
 app.use(
@@ -75,10 +53,7 @@ app.use(
 app.use(express.static(path.join(__dirname)));
 
 // Logging simple
-app.use((req, _res, next) => {
-  console.log(`➡️  ${req.method} ${req.url}`);
-  next();
-});
+app.use((req, _res, next) => { console.log(`➡️ ${req.method} ${req.url}`); next(); });
 
 /* ----------------------- STRIPE WEBHOOK ----------------------- */
 // ⚠️ Debe ir ANTES de express.json()
@@ -88,15 +63,11 @@ app.post(
   async (req, res) => {
     try {
       if (!stripe) return res.status(500).send("Stripe no configurado");
-
       const sig = req.headers["stripe-signature"];
       let event;
-
       try {
         event = stripe.webhooks.constructEvent(
-          req.body,
-          sig,
-          process.env.STRIPE_WEBHOOK_SECRET
+          req.body, sig, process.env.STRIPE_WEBHOOK_SECRET
         );
       } catch (err) {
         console.error("❌ Firma inválida:", err.message);
@@ -105,25 +76,17 @@ app.post(
 
       if (event.type === "checkout.session.completed") {
         const session = event.data.object;
-
         let lineItems = { data: [] };
-        try {
-          lineItems = await stripe.checkout.sessions.listLineItems(session.id);
-        } catch (err) {
-          console.error("⚠️ Error listando line items:", err.message);
-        }
+        try { lineItems = await stripe.checkout.sessions.listLineItems(session.id); }
+        catch (err) { console.error("⚠️ Error listando line items:", err.message); }
 
         try {
-          await sendReceiptEmail({
-            session,
-            lineItems: lineItems.data,
-          });
+          await sendReceiptEmail({ session, lineItems: lineItems.data });
           console.log("📧 Ticket enviado a:", session.customer_details?.email || session.customer_email);
         } catch (mailErr) {
           console.error("❌ Error enviando email:", mailErr.message);
         }
       }
-
       return res.json({ received: true });
     } catch (e) {
       console.error("🔥 Error Webhook:", e.message);
@@ -137,33 +100,24 @@ app.use(express.json());
 
 /* ------------------------- RUTAS BÁSICAS ------------------------- */
 app.get("/health", (req, res) => {
-  res.json({
-    ok: true,
-    base_url: getBaseUrl(req),
-    stripe: !!stripe,
-  });
+  res.json({ ok: true, base_url: getBaseUrl(req), stripe: !!stripe });
 });
 
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html")); // usa index.html (minúsculas)
+  // Sirve el index en minúsculas (haz que el archivo se llame "index.html")
+  res.sendFile(path.join(__dirname, "index.html"));
 });
 
 /* ------------------------- IA ------------------------- */
 app.post("/chat", async (req, res) => {
   try {
-    if (!process.env.HF_API_KEY)
-      return res.status(500).json({ error: "Falta HF_API_KEY" });
-
+    if (!process.env.HF_API_KEY) return res.status(500).json({ error: "Falta HF_API_KEY" });
     const { pregunta } = req.body || {};
     if (!pregunta || typeof pregunta !== "string" || !pregunta.trim())
       return res.status(400).json({ error: "Falta pregunta" });
 
-    // Endpoint compatible (estable) de Hugging Face
     const HF_CHAT_URL = "https://api-inference.huggingface.co/v1/chat/completions";
-    // Modelo que soporta chat/completions (ajústalo a tu cuenta)
     const MODEL = "HuggingFaceH4/zephyr-7b-beta";
-    // Alternativas si tu cuenta lo permite:
-    // const MODEL = "meta-llama/Llama-3.1-8B-Instruct";
 
     const response = await axios.post(
       HF_CHAT_URL,
@@ -191,12 +145,7 @@ app.post("/chat", async (req, res) => {
     const status = err?.response?.status;
     const data = err?.response?.data;
     console.error("HF error:", status, data || err.message);
-
-    const safeMsg =
-      (typeof data === "string" && data) ||
-      data?.error ||
-      err.message ||
-      "Error desconocido";
+    const safeMsg = (typeof data === "string" && data) || data?.error || err.message || "Error desconocido";
     res.status(500).json({ error: `HF: ${status || 500} ${safeMsg}` });
   }
 });
@@ -217,7 +166,6 @@ app.get("/youtube", async (_req, res) => {
       },
       timeout: 15000,
     });
-
     res.json(r.data);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -240,7 +188,6 @@ app.get("/facebook", async (_req, res) => {
         timeout: 15000,
       }
     );
-
     res.json(r.data);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -248,7 +195,7 @@ app.get("/facebook", async (_req, res) => {
 });
 
 /* ============================================================
-        CLOUDFLARE R2 — CLIENTE S3 (VIDEOS + MODELOS 3D)
+   CLOUDFLARE R2 — CLIENTE S3 (VIDEOS)
 ============================================================ */
 const s3 = new S3Client({
   region: process.env.S3_REGION || "auto",
@@ -262,8 +209,8 @@ const s3 = new S3Client({
 
 /* ------------------------- MULTER (disco temporal) ------------------------- */
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, os.tmpdir()),
-  filename: (req, file, cb) => {
+  destination: (_req, _file, cb) => cb(null, os.tmpdir()),
+  filename: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase() || ".bin";
     cb(null, `${uuidv4()}${ext}`);
   },
@@ -271,11 +218,10 @@ const storage = multer.diskStorage({
 
 /* ============================ VIDEOS ============================ */
 const allowedVideoMimes = ["video/mp4", "video/webm", "video/ogg"];
-
 const uploadVideo = multer({
   storage,
   limits: { fileSize: 1024 * 1024 * 500 }, // 500MB
-  fileFilter: (req, file, cb) => {
+  fileFilter: (_req, file, cb) => {
     if (!allowedVideoMimes.includes(file.mimetype)) {
       return cb(new Error("Formato inválido (solo MP4/WEBM/OGG)."));
     }
@@ -288,12 +234,9 @@ app.post("/upload", uploadVideo.single("video"), async (req, res) => {
   try {
     if (!process.env.S3_BUCKET)
       return res.status(500).json({ error: "Falta S3_BUCKET" });
-
-    if (!req.file)
-      return res.status(400).json({ error: "No file" });
+    if (!req.file) return res.status(400).json({ error: "No file" });
 
     const key = `videos/${req.file.filename}`;
-
     await s3.send(
       new PutObjectCommand({
         Bucket: process.env.S3_BUCKET,
@@ -302,7 +245,6 @@ app.post("/upload", uploadVideo.single("video"), async (req, res) => {
         ContentType: req.file.mimetype,
       })
     );
-
     fs.unlink(temp, () => {});
     res.json({ ok: true, key });
   } catch (err) {
@@ -322,7 +264,6 @@ app.get("/videos", async (_req, res) => {
         Prefix: "videos/",
       })
     );
-
     const items = list.Contents || [];
     items.sort((a, b) => new Date(b.LastModified) - new Date(a.LastModified));
 
@@ -343,112 +284,18 @@ app.get("/videos", async (_req, res) => {
           ),
         }))
     );
-
     res.json({ videos: result });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-/* ============================ MODELOS 3D ============================ */
-// ❌ OJO: NO volver a poner `const path = require("path");` aquí.
-// Ya lo importamos al principio. Usamos el mismo `path`.
-const allowedModelExt = new Set([".glb", ".gltf", ".obj", ".stl"]);
-
-const uploadModel = multer({
-  storage,
-  limits: { fileSize: 1024 * 1024 * 100 }, // 100MB
-  fileFilter: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    if (!allowedModelExt.has(ext)) {
-      return cb(new Error("Solo se permiten modelos .glb, .gltf, .obj, .stl"));
-    }
-    cb(null, true);
-  },
-});
-
-app.post("/upload-model", uploadModel.single("model"), async (req, res) => {
-  const temp = req.file?.path;
-  try {
-    if (!process.env.S3_BUCKET)
-      return res.status(500).json({ error: "Falta S3_BUCKET" });
-
-    if (!req.file)
-      return res.status(400).json({ error: "No file 'model'" });
-
-    const key = `models/${req.file.filename}`;
-    const contentType = mime.contentType(path.extname(req.file.originalname)) || "application/octet-stream";
-
-    await s3.send(
-      new PutObjectCommand({
-        Bucket: process.env.S3_BUCKET,
-        Key: key,
-        Body: fs.createReadStream(temp),
-        ContentType: contentType,
-      })
-    );
-
-    fs.unlink(temp, () => {});
-
-    const url = await getSignedUrl(
-      s3,
-      new GetObjectCommand({ Bucket: process.env.S3_BUCKET, Key: key }),
-      { expiresIn: 3600 }
-    );
-
-    res.json({ ok: true, key, url });
-  } catch (err) {
-    if (temp) fs.unlink(temp, () => {});
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get("/models", async (_req, res) => {
-  try {
-    if (!process.env.S3_BUCKET)
-      return res.status(500).json({ error: "Falta S3_BUCKET" });
-
-    const list = await s3.send(
-      new ListObjectsV2Command({
-        Bucket: process.env.S3_BUCKET,
-        Prefix: "models/",
-      })
-    );
-
-    const items = list.Contents || [];
-    items.sort((a, b) => new Date(b.LastModified) - new Date(a.LastModified));
-
-    const result = await Promise.all(
-      items
-        .filter((obj) => obj.Key && !obj.Key.endsWith("/"))
-        .map(async (obj) => ({
-          key: obj.Key,
-          size: obj.Size,
-          lastModified: obj.LastModified,
-          url: await getSignedUrl(
-            s3,
-            new GetObjectCommand({
-              Bucket: process.env.S3_BUCKET,
-              Key: obj.Key,
-            }),
-            { expiresIn: 3600 }
-          ),
-        }))
-    );
-
-    res.json({ models: result });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 /* ============================================================
-                        PAGOS STRIPE
+   PAGOS STRIPE
 ============================================================ */
 app.post("/crear-pago", async (req, res) => {
   try {
-    if (!stripe)
-      return res.status(500).json({ error: "Stripe no configurado" });
+    if (!stripe) return res.status(500).json({ error: "Stripe no configurado" });
 
     const { buyerEmail } = req.body || {};
     const baseUrl = process.env.BASE_URL?.trim() || getBaseUrl(req);
