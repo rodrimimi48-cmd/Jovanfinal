@@ -1,119 +1,56 @@
 <!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0" />
-  <title>ARK</title>
+<div id="main-extra"></div>
+</div>
 
-  <!-- Mapbox GL CSS -->
-  <link
-    rel="stylesheet"
-    href="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.css"
-    integrity="sha384-nuQ3cPpQhB+xT3c0T0k5w7ZV6v2v6i2oE9X9b3wV8vA8yG2qgkFq3gqk9k3p2z1N"
-    crossorigin="anonymous"
-  />
+</div>
 
-  <!-- Tus estilos -->
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body>
-  <div class="overlay"></div>
 
-  <div class="container">
-    <h1>ARK</h1>
+<h2>Apoyar el proyecto</h2>
 
-    <!-- REDES -->
-    <h2>Redes Sociales</h2>
-    <div class="social-buttons">
-      <button onclick="cargarVideosYouTube()">Ver videos YouTube</button>
-      <button onclick="cargarPostsFacebook()">Ver posts Facebook</button>
-    </div>
-    <div id="youtube-videos" class="social-embed"></div>
-    <div id="facebook-posts" class="social-embed"></div>
-    <p id="youtube-error" class="error"></p>
-    <p id="facebook-error" class="error"></p>
+<input id="buyerEmail" type="email" placeholder="Tu correo" required />
+<button onclick="pagar()">💳 Pagar $12 MXN</button>
 
-    <!-- 2FA -->
-    <h2>Verificación en 2 pasos</h2>
-    <input type="text" id="codigo" placeholder="Ingresa código" />
-    <button onclick="verificarCodigo()">Verificar</button>
-    <p id="verificacion-msg"></p>
 
-    <!-- MAPA GOOGLE (2D) -->
-    <h2>Mapa</h2>
-    <div id="map"></div>
-    <p id="map-error" class="error"></p>
+<h2>Subir video</h2>
 
-    <!-- IA -->
-    <h2>Chat IA sobre Dinosaurios</h2>
-    <input type="text" id="pregunta" placeholder="Pregunta sobre dinosaurios" />
-    <button onclick="preguntarIA()">Preguntar</button>
-    <p id="respuesta"></p>
+<form id="uploadForm" enctype="multipart/form-data">
 
-    <!-- REPRODUCTOR -->
-    <h2>Reproductor</h2>
-    <div class="player">
-      <div class="player-wrap">
-        <video id="main-video" controls playsinline preload="metadata"></video>
-        <div class="player-overlay">
-          <span id="main-filename">Selecciona un video…</span>
-        </div>
-      </div>
-      <div class="player-meta">
-        <div id="main-extra"></div>
-      </div>
-    </div>
+<input type="file" id="video" name="video" accept="video/mp4,video/webm,video/ogg" required />
 
-    <!-- PAGOS -->
-    <h2>Apoyar el proyecto</h2>
-    <p style="text-align:center; margin: 0 0 10px;">
-      Si te gusta este proyecto, puedes apoyar con una donación. 🙌
-    </p>
-    <input id="buyerEmail" type="email" placeholder="Tu correo para enviarte el ticket" required />
-    <div style="display:flex; justify-content:center; margin-bottom: 20px;">
-      <button onclick="pagar()">💳 Pagar $12 MXN</button>
-    </div>
+<button type="submit">Subir video</button>
 
-    <!-- STREAMING -->
-    <h2>Mis Videos (Streaming)</h2>
-    <form id="uploadForm" enctype="multipart/form-data">
-      <label>Subir video MP4/WEBM/OGG:</label>
-      <input type="file" id="video" name="video" accept="video/mp4,video/webm,video/ogg" required />
-      <button type="submit">Subir video</button>
-      <p id="upload-status"></p>
-    </form>
-    <button id="refreshBtn" type="button">Actualizar lista</button>
-    <div id="videos-grid"></div>
+<p id="upload-status"></p>
 
-    <!-- MAPA 3D (Mapbox) -->
-    <h2>Mapa 3D</h2>
-    <div id="map3d"></div>
-  </div>
+</form>
 
-  <!-- Tu JS principal -->
-  <script src="script.js" defer></script>
+<button id="refreshBtn">Actualizar lista</button>
 
-  <!-- Mapbox GL JS -->
-  <script
-    src="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.js"
-    integrity="sha384-T2y7c5L1JwL8F8rV8E7k2p6kq2gXJ8n3j8dVQqj2kQ4Jp4m7JQj2Gk3v7yXv7c2Q"
-    crossorigin="anonymous"
-    defer
-  ></script>
+<div id="videos-grid"></div>
 
-  <!-- Google Maps: si ya tienes key, deja esta línea. Si no, coméntala. -->
-  <script>
-    function gm_authFailure() {
-      const el = document.getElementById("map-error");
-      if (el) el.innerText = "Error: API Key inválida o dominio no autorizado en Google Maps.";
-    }
-  </script>
-  <script
-    src="https://maps.googleapis.com/maps/api/js?key=TU_GOOGLE_MAPS_API_KEY&callback=initMap"
-    async
-    defer
-  ></script>
+
+<h2>Mapa 3D</h2>
+<div id="map3d"></div>
+
+
+<h2>Visor de Modelos 3D</h2>
+
+<input type="file" id="modelFile" accept=".glb,.gltf,.obj,.stl">
+<button onclick="subirModelo()">Subir Modelo</button>
+
+<div id="viewer3d"></div>
+
+
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/loaders/GLTFLoader.js"></script>
+
+<script src="script.js" defer></script>
+
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.js" defer></script>
+
+<script src="https://maps.googleapis.com/maps/api/js?key=TU_GOOGLE_MAPS_API_KEY&callback=initMap" async defer></script>
+
 </body>
 </html>

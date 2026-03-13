@@ -9,10 +9,10 @@ function verificarCodigo() {
   const codigo = document.getElementById("codigo").value;
   const msg = document.getElementById("verificacion-msg");
   if (codigo === codigoCorrecto) {
-    msg.innerText = "Verificación correcta ✅";
+    msg.innerText = "VerificaciÃ³n correcta âœ…";
     msg.style.color = "green";
   } else {
-    msg.innerText = "Código incorrecto ❌";
+    msg.innerText = "CÃ³digo incorrecto âŒ";
     msg.style.color = "red";
   }
 }
@@ -151,7 +151,7 @@ function setFeatured(videoObj) {
   const size = formatBytes(videoObj?.size);
   const fecha = videoObj?.lastModified ? new Date(videoObj.lastModified).toLocaleString() : "";
   mainFilename.textContent = name || "Video";
-  mainExtra.textContent = `${size ? `Tamaño: ${size} · ` : ""}${fecha ? `Modificado: ${fecha}` : ""}`;
+  mainExtra.textContent = `${size ? `TamaÃ±o: ${size} Â· ` : ""}${fecha ? `Modificado: ${fecha}` : ""}`;
   document.querySelector(".player")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 async function loadVideos(keepKey) {
@@ -196,7 +196,7 @@ async function loadVideos(keepKey) {
           </div>
         </div>
         <div class="video-meta">
-          <div><b>Tamaño:</b> ${formatBytes(v.size)}</div>
+          <div><b>TamaÃ±o:</b> ${formatBytes(v.size)}</div>
           <div><b>Modificado:</b> ${v.lastModified ? new Date(v.lastModified).toLocaleString() : ""}</div>
         </div>
       `;
@@ -241,7 +241,7 @@ async function handleUpload(e) {
     const r = await fetch(`${API_BASE}/upload`, { method: "POST", body: fd });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || "Error de subida");
-    status.textContent = "✓ Subido";
+    status.textContent = "âœ“ Subido";
     await loadVideos();
   } catch (err) {
     status.textContent = "Error: " + err.message;
@@ -261,7 +261,7 @@ async function pagar() {
       emailInput?.focus();
       return;
     }
-    const items = [{ name: "Donación ARK", qty: 1, price: 12.0 }];
+    const items = [{ name: "DonaciÃ³n ARK", qty: 1, price: 12.0 }];
     const res = await fetch(`${window.location.origin}/crear-pago`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -279,16 +279,16 @@ async function pagar() {
     }
   } catch (e) {
     alert("Error al iniciar pago: " + e.message);
-    console.error("❌ /crear-pago error:", e);
+    console.error("âŒ /crear-pago error:", e);
   }
 }
 
 /************* MAPA 3D (Mapbox GL JS) *************/
-const MAPBOX_TOKEN = "TU_MAPBOX_ACCESS_TOKEN"; // <-- pega aquí tu token público
+const MAPBOX_TOKEN = "TU_MAPBOX_ACCESS_TOKEN"; // <-- pega aquÃ­ tu token pÃºblico
 function initMap3D() {
   try {
     if (!window.mapboxgl) {
-      console.error("Mapbox GL JS no cargó.");
+      console.error("Mapbox GL JS no cargÃ³.");
       return;
     }
     mapboxgl.accessToken = MAPBOX_TOKEN;
@@ -299,7 +299,7 @@ function initMap3D() {
       return;
     }
 
-    // Centro en CDMX con inclinación y rotación para ver el 3D
+    // Centro en CDMX con inclinaciÃ³n y rotaciÃ³n para ver el 3D
     const map3d = new mapboxgl.Map({
       container: "map3d",
       style: "mapbox://styles/mapbox/streets-v12", // puedes probar "satellite-streets-v12"
