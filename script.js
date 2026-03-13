@@ -7,11 +7,9 @@ const API_BASE = window.location.origin; // mismo host/puerto del server
 // 2FA SIMPLE
 //////////////////////
 const codigoCorrecto = "123456";
-
 function verificarCodigo() {
   const codigo = document.getElementById("codigo").value;
   const msg = document.getElementById("verificacion-msg");
-
   if (codigo === codigoCorrecto) {
     msg.innerText = "Verificación correcta ✅";
     msg.style.color = "green";
@@ -27,12 +25,10 @@ function verificarCodigo() {
 function initMap() {
   try {
     const ubicacion = { lat: 19.4326, lng: -99.1332 };
-
     const map = new google.maps.Map(document.getElementById("map"), {
       zoom: 10,
       center: ubicacion,
     });
-
     new google.maps.Marker({ position: ubicacion, map });
   } catch (error) {
     document.getElementById("map-error").innerText =
@@ -47,10 +43,8 @@ window.initMap = initMap;
 async function preguntarIA() {
   const pregunta = document.getElementById("pregunta").value;
   const respuestaBox = document.getElementById("respuesta");
-
   if (!pregunta) return;
   respuestaBox.innerText = "Cargando...";
-
   try {
     const res = await fetch(`${API_BASE}/chat`, {
       method: "POST",
@@ -71,21 +65,17 @@ async function preguntarIA() {
 async function cargarVideosYouTube() {
   const contenedor = document.getElementById("youtube-videos");
   const errorBox = document.getElementById("youtube-error");
-
   contenedor.innerHTML = "";
   errorBox.innerText = "Cargando videos...";
-
   try {
     const res = await fetch(`${API_BASE}/youtube`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Error desconocido");
     errorBox.innerText = "";
-
     if (!data.items || data.items.length === 0) {
       errorBox.innerText = "No se encontraron videos.";
       return;
     }
-
     data.items.forEach((item) => {
       if (item.id.kind === "youtube#video") {
         contenedor.innerHTML += `
@@ -112,28 +102,22 @@ async function cargarVideosYouTube() {
 async function cargarPostsFacebook() {
   const contenedor = document.getElementById("facebook-posts");
   const errorBox = document.getElementById("facebook-error");
-
   contenedor.innerHTML = "";
   errorBox.innerText = "Cargando publicaciones...";
-
   try {
     const res = await fetch(`${API_BASE}/facebook`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Error desconocido");
     errorBox.innerText = "";
-
     if (!data.data || data.data.length === 0) {
       errorBox.innerText = "No se encontraron publicaciones.";
       return;
     }
-
     data.data.forEach((post) => {
       contenedor.innerHTML += `
         <div class="fb-post">
           <p>${post.message || "[Sin mensaje]"}</p>
-          <a href="${post.permalink_url}" target="_blank" rel="noopener noreferrer">
-            Ver en Facebook
-          </a>
+          <a href="${post.permalink_url}" target="_blank" rel="noopener noreferrer">Ver en Facebook</a>
         </div>
       `;
     });
@@ -156,83 +140,66 @@ function formatBytes(bytes) {
   while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
   return `${v.toFixed(v < 10 && i > 1 ? 1 : 0)} ${u[i]}`;
 }
-
 function setFeatured(videoObj) {
   const mainVideo = document.getElementById("main-video");
   const mainFilename = document.getElementById("main-filename");
   const mainExtra = document.getElementById("main-extra");
   if (!mainVideo) return;
-
   try { mainVideo.pause(); } catch {}
   mainVideo.src = videoObj?.url || "";
   mainVideo.currentTime = 0;
-
   mainVideo.play().catch(() => {});
-
   const name = getFileNameFromKey(videoObj?.key || "");
   const size = formatBytes(videoObj?.size);
   const fecha = videoObj?.lastModified ? new Date(videoObj.lastModified).toLocaleString() : "";
   mainFilename.textContent = name || "Video";
   mainExtra.textContent = `${size ? `Tamaño: ${size} · ` : ""}${fecha ? `Modificado: ${fecha}` : ""}`;
-
   document.querySelector(".player")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
-
 async function loadVideos(keepKey) {
   const grid = document.getElementById("videos-grid");
   if (!grid) return;
-
   grid.innerHTML = "Cargando...";
-
   try {
     const r = await fetch(`${API_BASE}/videos`);
     const data = await r.json();
     grid.innerHTML = "";
-
     const videos = data.videos || [];
     if (!videos.length) {
       grid.innerHTML = "<em>Sin videos</em>";
       setFeatured({ url: "", key: "", size: 0, lastModified: null });
       return;
     }
-
     let featured = videos[0];
     if (keepKey) {
       const found = videos.find((v) => v.key === keepKey);
       if (found) featured = found;
     }
     setFeatured(featured);
-
     videos.forEach((v) => {
       const fileName = getFileNameFromKey(v.key);
-
       const card = document.createElement("div");
       card.className = "video-card";
       card.style.maxWidth = "360px";
       card.title = v.key;
-
       card.innerHTML = `
         <div class="video-wrap">
           <video class="hover-video" muted playsinline preload="metadata" src="${v.url}"></video>
-
           <div class="play-badge" aria-hidden="true">
             <svg viewBox="0 0 100 100" fill="currentColor">
               <circle cx="50" cy="50" r="44" opacity=".25"></circle>
               <polygon points="40,30 75,50 40,70"></polygon>
             </svg>
           </div>
-
           <div class="video-overlay">
             <span class="video-filename">${fileName}</span>
           </div>
         </div>
-
         <div class="video-meta">
           <div><b>Tamaño:</b> ${formatBytes(v.size)}</div>
           <div><b>Modificado:</b> ${v.lastModified ? new Date(v.lastModified).toLocaleString() : ""}</div>
         </div>
       `;
-
       const thumb = card.querySelector(".hover-video");
       if (thumb) {
         card.addEventListener("mouseenter", () => {
@@ -245,7 +212,6 @@ async function loadVideos(keepKey) {
           thumb.currentTime = 0;
         });
       }
-
       card.addEventListener("click", async () => {
         setFeatured(v);
         try {
@@ -255,7 +221,6 @@ async function loadVideos(keepKey) {
           await loadVideos(v.key);
         }
       });
-
       grid.appendChild(card);
     });
   } catch (e) {
@@ -263,24 +228,19 @@ async function loadVideos(keepKey) {
     console.error(e);
   }
 }
-
 async function handleUpload(e) {
   e.preventDefault();
   const status = document.getElementById("upload-status");
   const input = document.getElementById("video");
   const file = input?.files?.[0];
   if (!file) return;
-
   status.textContent = "Subiendo...";
-
   try {
     const fd = new FormData();
     fd.append("video", file);
-
     const r = await fetch(`${API_BASE}/upload`, { method: "POST", body: fd });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || "Error de subida");
-
     status.textContent = "✓ Subido";
     await loadVideos();
   } catch (err) {
@@ -303,24 +263,18 @@ async function pagar() {
       emailInput?.focus();
       return;
     }
-
-    // Si luego tienes un carrito real, rellena 'items' desde tu estado.
     const items = [{ name: "Donación ARK", qty: 1, price: 12.0 }];
-
     const res = await fetch(`${window.location.origin}/crear-pago`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ buyerEmail, items }),
     });
-
     if (!res.ok) {
       const txt = await res.text().catch(() => "");
       throw new Error(`HTTP ${res.status} ${txt}`);
     }
-
     const data = await res.json();
     if (data?.url) {
-      // Redirige a Stripe inmediatamente
       window.location.href = data.url;
     } else {
       alert("No se pudo iniciar el pago (sin URL de Stripe)");
@@ -332,265 +286,176 @@ async function pagar() {
 }
 
 //////////////////////
-// VISOR 3D (Three.js)
+// MAPA 3D (Mapbox) — modo “caminar” (first‑person)
 //////////////////////
-let scene, camera, renderer, model, threeContainer, controls;
-let lastBgDark = true;
 
-/** Overlay de estado en el visor */
-function setModelStatus(msg) {
-  const container = document.getElementById("viewer3d");
-  if (!container) return;
-  let box = document.getElementById("model-status");
-  if (!box) {
-    box = document.createElement("div");
-    box.id = "model-status";
-    box.style.position = "absolute";
-    box.style.left = "12px";
-    box.style.bottom = "12px";
-    box.style.background = "rgba(0,0,0,.6)";
-    box.style.color = "#fff";
-    box.style.padding = "6px 10px";
-    box.style.borderRadius = "8px";
-    box.style.fontSize = "12px";
-    container.style.position = "relative";
-    container.appendChild(box);
-  }
-  box.textContent = msg || "";
-}
+// ⚠️ Pega tu token público de Mapbox aquí:
+const MAPBOX_TOKEN = "TU_MAPBOX_ACCESS_TOKEN";
 
-function init3D() {
-  threeContainer = document.getElementById("viewer3d");
-  if (!threeContainer || !window.THREE) return; // si no existe el div o no cargó three.js, no iniciar
+function initMap3DWalk() {
+  const el = document.getElementById("map3d");
+  const errBox = document.getElementById("map3d-error");
+  if (!el) return;
 
-  scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x111111);
-
-  camera = new THREE.PerspectiveCamera(
-    60,
-    threeContainer.clientWidth / threeContainer.clientHeight,
-    0.1,
-    2000
-  );
-  camera.position.set(2, 2, 4);
-
-  renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
-  threeContainer.innerHTML = ""; // limpia si había algo
-  threeContainer.appendChild(renderer.domElement);
-
-  // Luces
-  const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.9);
-  hemi.position.set(0, 1, 0);
-  scene.add(hemi);
-
-  const dir = new THREE.DirectionalLight(0xffffff, 0.9);
-  dir.position.set(5, 10, 7);
-  scene.add(dir);
-
-  // Controles de órbita (si está cargado el script)
-  if (THREE.OrbitControls) {
-    controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
-    controls.target.set(0, 0, 0);
-  }
-
-  // Drag & Drop
-  threeContainer.addEventListener("dragover", (e) => {
-    e.preventDefault();
-    setModelStatus("Suelta el archivo para cargar…");
-  });
-  threeContainer.addEventListener("dragleave", () => {
-    setModelStatus("Arrastra aquí un .glb/.gltf o usa el botón.");
-  });
-  threeContainer.addEventListener("drop", (e) => {
-    e.preventDefault();
-    if (!e.dataTransfer.files?.length) return;
-    const file = e.dataTransfer.files[0];
-    cargarArchivo3D(file);
-  });
-
-  animate3D();
-
-  // Resize
-  window.addEventListener("resize", onResize3D);
-
-  // Mensaje inicial
-  setModelStatus("Arrastra aquí un .glb/.gltf o usa “Cargar modelo 3D”.");
-}
-
-function onResize3D() {
-  if (!renderer || !camera || !threeContainer) return;
-  const w = threeContainer.clientWidth;
-  const h = threeContainer.clientHeight;
-  camera.aspect = w / h;
-  camera.updateProjectionMatrix();
-  renderer.setSize(w, h);
-}
-
-function animate3D() {
-  requestAnimationFrame(animate3D);
-  if (controls) controls.update();
-  if (renderer && scene && camera) renderer.render(scene, camera);
-}
-
-function clearModel3D() {
-  if (!model) return;
-  scene.remove(model);
-  model.traverse?.((c) => {
-    if (c.geometry) c.geometry.dispose?.();
-    if (c.material) {
-      if (Array.isArray(c.material)) c.material.forEach((m) => m.dispose?.());
-      else c.material.dispose?.();
-    }
-    if (c.texture) c.texture.dispose?.();
-  });
-  model = null;
-}
-
-function fitModel(object3D) {
-  // centra y escala el modelo para que quepa en cámara
-  const box = new THREE.Box3().setFromObject(object3D);
-  const size = new THREE.Vector3();
-  const center = new THREE.Vector3();
-  box.getSize(size);
-  box.getCenter(center);
-
-  // Re-centra el modelo al origen
-  object3D.position.x += (object3D.position.x - center.x);
-  object3D.position.y += (object3D.position.y - center.y);
-  object3D.position.z += (object3D.position.z - center.z);
-
-  // Calcula distancia para encuadre
-  const maxDim = Math.max(size.x, size.y, size.z) || 1;
-  const fov = camera.fov * (Math.PI / 180);
-  const dist = maxDim / (2 * Math.tan(fov / 2));
-  camera.position.set(0, maxDim * 0.5, dist * 1.4);
-  camera.near = Math.max(0.1, dist / 1000);
-  camera.far = dist * 100;
-  camera.updateProjectionMatrix();
-
-  if (controls) {
-    controls.target.set(0, 0, 0);
-    controls.update();
-  } else {
-    camera.lookAt(0, 0, 0);
-  }
-}
-
-function cargarModelo3D(){
-  const fileInput = document.getElementById('modelInput');
-  const file = fileInput?.files?.[0];
-  if (!file) { alert('Selecciona un modelo 3D (.gltf, .glb).'); return; }
-  const ext = (file.name||'').split('.').pop().toLowerCase();
-  // 1) Preferir THREE + loaders locales (repo /three)
-  if (window.THREE && (THREE.GLTFLoader || THREE.OBJLoader || THREE.STLLoader)) {
-    cargarArchivo3D(file); // usa tu pipeline existente con THREE.*
+  if (!window.mapboxgl) {
+    errBox && (errBox.textContent = "No se cargó Mapbox GL JS.");
     return;
   }
-  // 2) Fallback: <model-viewer>
-  const mv = document.getElementById('mv');
-  if (mv && (ext==='glb' || ext==='gltf')){
-    cargarArchivo3D_conModelViewer(file);
+  if (!MAPBOX_TOKEN || MAPBOX_TOKEN === "TU_MAPBOX_ACCESS_TOKEN") {
+    errBox && (errBox.textContent = "Falta MAPBOX_TOKEN en script.js");
     return;
   }
-  alert('No hay loader disponible para este formato.');
+
+  mapboxgl.accessToken = MAPBOX_TOKEN;
+
+  const map = new mapboxgl.Map({
+    container: "map3d",
+    style: "mapbox://styles/mapbox/streets-v12",
+    center: [-99.1332, 19.4326], // CDMX
+    zoom: 16,
+    pitch: 60,
+    bearing: 40,
+    antialias: true
+  });
+
+  map.addControl(new mapboxgl.NavigationControl(), "top-right");
+  map.addControl(new mapboxgl.FullscreenControl());
+
+  // Instrucciones overlay
+  const hint = document.createElement("div");
+  hint.style.position = "absolute";
+  hint.style.right = "10px";
+  hint.style.bottom = "10px";
+  hint.style.background = "rgba(0,0,0,.55)";
+  hint.style.color = "#fff";
+  hint.style.padding = "8px 10px";
+  hint.style.borderRadius = "8px";
+  hint.style.fontSize = "12px";
+  hint.style.pointerEvents = "none";
+  hint.innerHTML = "Click para capturar mouse • W/A/S/D = mover • Ratón = mirar • Q/E = subir/bajar • Shift = sprint • Esc = liberar";
+  el.appendChild(hint);
+
+  map.on("style.load", () => {
+    // Cielo/fog
+    map.setFog({ range: [0.5, 10], color: "#d6e5fb", "horizon-blend": 0.02 });
+
+    // DEM (terreno)
+    map.addSource("mapbox-dem", {
+      type: "raster-dem",
+      url: "mapbox://mapbox.mapbox-terrain-dem-v1",
+      tileSize: 512,
+      maxzoom: 14
+    });
+    map.setTerrain({ source: "mapbox-dem", exaggeration: 1.3 });
+
+    // Edificios 3D
+    map.addLayer({
+      id: "3d-buildings",
+      source: "composite",
+      "source-layer": "building",
+      filter: ["==", "extrude", "true"],
+      type: "fill-extrusion",
+      minzoom: 15,
+      paint: {
+        "fill-extrusion-color": "#aaa",
+        "fill-extrusion-height": ["get", "height"],
+        "fill-extrusion-base": ["get", "min_height"],
+        "fill-extrusion-opacity": 0.6
+      }
+    });
+
+    // Activar modo caminar
+    setupFirstPerson(map, el);
+  });
 }
 
-function cargarArchivo3D(file) {
-  const url = URL.createObjectURL(file);
-  const ext = (file.name || "").split(".").pop().toLowerCase();
-  cargarUrl3D(url, ext, () => URL.revokeObjectURL(url));
-}
+// Lógica de “first-person walking” con FreeCamera
+function setupFirstPerson(map, containerEl) {
+  let pos = { lng: map.getCenter().lng, lat: map.getCenter().lat, alt: 20 };
+  let yaw = map.getBearing() * Math.PI / 180;
+  let pitch = -10 * Math.PI / 180;
+  let speed = 3.0;                 // m/s
+  const sprint = 2.0;
+  const deg = Math.PI / 180;
+  const EARTH_R = 6378137;
+  const keys = new Set();
+  let pointerLocked = false;
+  let lastTs = performance.now();
 
-function cargarUrl3D(url, ext, done) {
-  try {
-    setModelStatus("Cargando… 0%");
-    // Limpia modelo anterior
-    clearModel3D();
+  // Pointer lock para mirar con ratón
+  containerEl.addEventListener("click", () => {
+    containerEl.requestPointerLock?.();
+  });
+  document.addEventListener("pointerlockchange", () => {
+    pointerLocked = (document.pointerLockElement === containerEl);
+  });
+  document.addEventListener("mousemove", (e) => {
+    if (!pointerLocked) return;
+    const sens = 0.0025;
+    yaw   -= e.movementX * sens;
+    pitch -= e.movementY * sens;
+    const maxPitch = 85 * deg;
+    if (pitch >  maxPitch) pitch =  maxPitch;
+    if (pitch < -maxPitch) pitch = -maxPitch;
+  });
 
-    const onProgress = (xhr) => {
-      if (!xhr?.lengthComputable) return;
-      const p = Math.min(100, Math.round((xhr.loaded / xhr.total) * 100));
-      setModelStatus(`Cargando… ${p}%`);
-    };
-    const onError = (err) => {
-      console.error("❌ Error cargando modelo:", err);
-      setModelStatus("Error cargando modelo.");
-      done?.();
-    };
+  // Teclado
+  window.addEventListener("keydown", (e) => keys.add(e.code));
+  window.addEventListener("keyup",   (e) => keys.delete(e.code));
 
-    if ((ext === "gltf" || ext === "glb") && THREE.GLTFLoader) {
-      const loader = new THREE.GLTFLoader();
-      loader.load(
-        url,
-        (gltf) => {
-          model = gltf.scene || gltf.scenes?.[0];
-          scene.add(model);
-          fitModel(model);
-          setModelStatus("Listo ✔");
-          done?.();
-        },
-        onProgress,
-        onError
-      );
-    } else if (ext === "obj" && THREE.OBJLoader) {
-      // Si quieres OBJ, agrega el script de OBJLoader en tu index.html
-      const loader = new THREE.OBJLoader();
-      loader.load(
-        url,
-        (obj) => {
-          model = obj;
-          scene.add(model);
-          fitModel(model);
-          setModelStatus("Listo ✔");
-          done?.();
-        },
-        onProgress,
-        onError
-      );
-    } else if (ext === "stl" && THREE.STLLoader) {
-      // Si quieres STL, agrega el script de STLLoader en tu index.html
-      const loader = new THREE.STLLoader();
-      loader.load(
-        url,
-        (geometry) => {
-          const material = new THREE.MeshStandardMaterial({
-            color: 0x888888,
-            metalness: 0.1,
-            roughness: 0.8,
-          });
-          model = new THREE.Mesh(geometry, material);
-          scene.add(model);
-          fitModel(model);
-          setModelStatus("Listo ✔");
-          done?.();
-        },
-        onProgress,
-        onError
-      );
-    } else {
-      alert("Formato no compatible o loader no disponible. Usa .glb/.gltf o agrega los loaders de OBJ/STL en el HTML.");
-      setModelStatus("Formato no soportado.");
-      done?.();
-    }
-  } catch (e) {
-    console.error(e);
-    setModelStatus("Error inesperado cargando modelo.");
-    done?.();
+  function step(dt) {
+    const forwardX =  Math.cos(yaw);
+    const forwardY =  Math.sin(yaw);
+    const rightX   = -Math.sin(yaw);
+    const rightY   =  Math.cos(yaw);
+
+    let v = speed * (keys.has("ShiftLeft") || keys.has("ShiftRight") ? sprint : 1.0);
+    let dx = 0, dy = 0, dz = 0;
+
+    if (keys.has("KeyW")) { dx += forwardX * v * dt; dy += forwardY * v * dt; }
+    if (keys.has("KeyS")) { dx -= forwardX * v * dt; dy -= forwardY * v * dt; }
+    if (keys.has("KeyA")) { dx -= rightX   * v * dt; dy -= rightY   * v * dt; }
+    if (keys.has("KeyD")) { dx += rightX   * v * dt; dy += rightY   * v * dt; }
+    if (keys.has("KeyQ")) { dz += v * dt; }
+    if (keys.has("KeyE")) { dz -= v * dt; }
+
+    const dLat = (dy / EARTH_R) * (180 / Math.PI);
+    const dLng = (dx / (EARTH_R * Math.cos(pos.lat * deg))) * (180 / Math.PI);
+
+    pos.lat = clamp(pos.lat + dLat, -85, 85);
+    pos.lng = wrapLng(pos.lng + dLng);
+    pos.alt = Math.max(1, pos.alt + dz);
+
+    // Calcular punto de enfoque
+    const forwardMeters = 10;
+    const fx = Math.cos(pitch) * Math.cos(yaw);
+    const fy = Math.cos(pitch) * Math.sin(yaw);
+
+    const targetLat = pos.lat + (forwardMeters * fy / EARTH_R) * (180 / Math.PI);
+    const targetLng = pos.lng + (forwardMeters * fx / (EARTH_R * Math.cos(pos.lat * deg))) * (180 / Math.PI);
+    const target = [targetLng, targetLat];
+
+    const cam = map.getFreeCameraOptions();
+    const mc = mapboxgl.MercatorCoordinate.fromLngLat([pos.lng, pos.lat], pos.alt);
+    cam.position = mc.toVector3();
+    cam.lookAtPoint(target);
+    map.setFreeCameraOptions(cam);
   }
-}
 
-function resetCamara3D() {
-  if (!model) return;
-  fitModel(model);
-}
+  function animate(ts) {
+    const dt = Math.min(0.05, (ts - lastTs) / 1000);
+    lastTs = ts;
+    step(dt);
+    requestAnimationFrame(animate);
+  }
+  requestAnimationFrame(animate);
 
-function toggleFondo3D() {
-  lastBgDark = !lastBgDark;
-  scene.background = new THREE.Color(lastBgDark ? 0x111111 : 0xf3f3f3);
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function wrapLng(lng) {
+    while (lng > 180) lng -= 360;
+    while (lng < -180) lng += 360;
+    return lng;
+  }
 }
 
 //////////////////////
@@ -615,6 +480,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // Carga inicial de videos
   loadVideos();
 
-  // Inicia visor 3D
-  init3D();
+  // Inicia Mapbox 3D (modo caminar)
+  initMap3DWalk();
 });
