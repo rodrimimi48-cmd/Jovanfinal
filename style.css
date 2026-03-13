@@ -338,3 +338,37 @@ input:focus {
   font-size: 12px;
   pointer-events: none;   /* 👈 no intercepta el mouse */
 }
+/* Overlay NO bloquea el canvas */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0,0,0,0.55);
+  z-index: 0;
+  pointer-events: none; /* 👈 importantísimo */
+}
+
+/* Visor 3D sí recibe eventos */
+#viewer3d {
+  width: 100%;
+  height: 400px;
+  background: #0c0c0c;
+  border-radius: 14px;
+  border: 3px solid #7a1026;
+  margin-top: 15px;
+  margin-bottom: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  position: relative;
+  overflow: hidden;
+  pointer-events: auto; /* 👈 importantísimo */
+}
+
+#model-status {
+  position: absolute;
+  left: 12px; bottom: 12px;
+  background: rgba(0,0,0,.6);
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  pointer-events: none; /* 👈 que no tape clics */
+}

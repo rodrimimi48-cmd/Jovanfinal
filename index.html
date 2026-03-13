@@ -1,221 +1,46 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Test Visor 3D</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ARK</title>
 
-<style>
-  body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#222; color:#eee; }
-  h1 { text-align:center; font-weight:700; margin:16px 0; }
-  .wrap { max-width: 900px; margin: 0 auto; padding: 12px; }
-  #viewer3d {
-    width: 100%; height: 480px; background: #0c0c0c; border-radius: 14px;
-    border: 3px solid #7a1026; box-shadow: 0 8px 24px rgba(0,0,0,.25);
-    position: relative; overflow: hidden; pointer-events: auto;
-  }
-  #model-status {
-    position: absolute; left:12px; bottom:12px; pointer-events:none;
-    background: rgba(0,0,0,.6); color:#fff; font-size:12px;
-    padding:6px 10px; border-radius:8px;
-  }
-  .controls { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0; }
-  button, input[type="file"] {
-    padding:10px 12px; border-radius:10px; border: none; background:#7a1026; color:#fff; cursor:pointer;
-  }
-  input[type="file"] { background:#fff; color:#222; border:2px solid #7a1026; }
-</style>
+  <!-- Tus estilos -->
+  <link rel="stylesheet" href="style.css" />
 
-<!-- Three.js + loaders (R150 – modo “examples/js” clásico, SIN módulos) -->
-<script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/controls/OrbitControls.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/loaders/GLTFLoader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/loaders/DRACOLoader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/loaders/OBJLoader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/loaders/STLLoader.js"></script>
+  <!-- Three.js y loaders (CLÁSICO) -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/loaders/DRACOLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/loaders/OBJLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/loaders/STLLoader.js"></script>
 </head>
 <body>
-  <div class="wrap">
-    <h1>Visor 3D (Prueba mínima)</h1>
+  <div class="overlay"></div>
+
+  <div class="container">
+    <h1>ARK</h1>
+
+    <!-- … (deja aquí tus secciones existentes de redes, IA, videos, pagos, etc.) … -->
+
+    <!-- VISOR 3D NATIVO -->
+    <h2>Visor 3D</h2>
     <div id="viewer3d">
-      <div id="model-status">Arrastra un .glb/.gltf/.obj/.stl o usa “Cargar modelo 3D”</div>
+      <div id="model-status">
+        Arrastra aquí un .glb/.gltf/.obj/.stl o usa “Cargar modelo 3D”
+      </div>
     </div>
-    <div class="controls">
-      <input type="file" id="modelInput" accept=".gltf,.glb,.obj,.stl"/>
-      <button id="btnLoad">Cargar modelo 3D</button>
-      <button id="btnReset">Reset cámara</button>
-      <button id="btnBg">Fondo claro/oscuro</button>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+      <!-- OJO: .glb está bien; .gbl NO existe -->
+      <input type="file" id="modelInput" accept=".gltf,.glb,.obj,.stl" />
+      <button onclick="cargarModelo3D()">Cargar modelo 3D</button>
+      <button onclick="resetCamara3D()">Reset cámara</button>
+      <button onclick="toggleFondo3D()">Fondo claro/oscuro</button>
     </div>
   </div>
 
-<script>
-(() => {
-  let scene, camera, renderer, model, threeContainer, controls;
-  let darkBg = true;
-  let demoMesh = null;
-
-  function setStatus(t){ const s=document.getElementById('model-status'); if(s) s.textContent=t||''; }
-
-  function init3D() {
-    threeContainer = document.getElementById("viewer3d");
-    if (!threeContainer) { console.error("#viewer3d no existe"); return; }
-    if (!window.THREE)  { console.error("THREE no cargó"); return; }
-
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x111111);
-
-    const w = threeContainer.clientWidth;
-    const h = threeContainer.clientHeight;
-
-    camera = new THREE.PerspectiveCamera(60, w/h, 0.1, 2000);
-    camera.position.set(2,2,4);
-
-    renderer = new THREE.WebGLRenderer({ antialias:true });
-    renderer.outputEncoding = THREE.sRGBEncoding;
-    renderer.toneMapping   = THREE.ACESFilmicToneMapping;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
-    renderer.setSize(w,h);
-
-    // importante para permitir interacción
-    renderer.domElement.style.touchAction = "none";
-    renderer.domElement.style.cursor = "grab";
-    renderer.domElement.addEventListener("pointerdown", ()=> renderer.domElement.style.cursor="grabbing");
-    renderer.domElement.addEventListener("pointerup",   ()=> renderer.domElement.style.cursor="grab");
-
-    threeContainer.innerHTML = ""; // limpia el overlay
-    threeContainer.appendChild(renderer.domElement);
-
-    const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.8); hemi.position.set(0,1,0); scene.add(hemi);
-    const dir  = new THREE.DirectionalLight(0xffffff, 1.0); dir.position.set(5,10,7); scene.add(dir);
-
-    if (THREE.OrbitControls) {
-      controls = new THREE.OrbitControls(camera, renderer.domElement);
-      controls.enableDamping = true; controls.dampingFactor = 0.07;
-      controls.minDistance = 0.5; controls.maxDistance = 100; controls.maxPolarAngle = Math.PI*0.99;
-    }
-
-    addDemoMesh();
-    animate3D();
-
-    window.addEventListener("resize", onResize3D, { passive:true });
-    setupDragAndDrop();
-  }
-
-  function addDemoMesh(){
-    const geom = new THREE.TorusKnotGeometry(0.8, 0.25, 160, 32);
-    const mat  = new THREE.MeshStandardMaterial({ color:0x7a1026, metalness:0.2, roughness:0.5 });
-    demoMesh = new THREE.Mesh(geom, mat);
-    scene.add(demoMesh);
-    fitModel(demoMesh);
-    setStatus("Modelo de prueba cargado. Arrastra un archivo para reemplazarlo.");
-  }
-
-  function clearCurrentModel(){
-    if (model) {
-      scene.remove(model);
-      model.traverse?.(c => {
-        c.geometry?.dispose?.();
-        if (Array.isArray(c.material)) c.material.forEach(m=>m.dispose?.());
-        else c.material?.dispose?.();
-      });
-      model = null;
-    }
-    if (demoMesh) { scene.remove(demoMesh); demoMesh.geometry.dispose(); demoMesh.material.dispose(); demoMesh=null; }
-  }
-
-  function onResize3D(){
-    if (!renderer || !camera || !threeContainer) return;
-    const w = threeContainer.clientWidth, h = threeContainer.clientHeight;
-    camera.aspect = w/h; camera.updateProjectionMatrix(); renderer.setSize(w,h);
-  }
-
-  function animate3D(){
-    requestAnimationFrame(animate3D);
-    if (demoMesh) demoMesh.rotation.y += 0.01;
-    controls?.update?.();
-    renderer?.render(scene, camera);
-  }
-
-  function fitModel(object3D){
-    const box = new THREE.Box3().setFromObject(object3D);
-    const size = new THREE.Vector3(); const center = new THREE.Vector3();
-    box.getSize(size); box.getCenter(center);
-    object3D.position.sub(center);
-    const maxDim = Math.max(size.x,size.y,size.z);
-    const fov = camera.fov * Math.PI/180;
-    const dist = maxDim / (2 * Math.tan(fov/2));
-    camera.position.set(0, maxDim*0.6, dist*1.6);
-    camera.lookAt(0,0,0);
-    controls?.target?.set(0,0,0); controls?.update?.();
-  }
-
-  function loadModelFile(file){
-    const ext = file.name.split(".").pop().toLowerCase();
-    const url = URL.createObjectURL(file);
-    clearCurrentModel();
-    setStatus(`Cargando: ${file.name}…`);
-
-    if ((ext==="gltf"||ext==="glb") && THREE.GLTFLoader) {
-      const loader = new THREE.GLTFLoader();
-      if (THREE.DRACOLoader) {
-        const draco = new THREE.DRACOLoader();
-        draco.setDecoderPath("https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/libs/draco/");
-        loader.setDRACOLoader(draco);
-      }
-      loader.load(url, (gltf) => {
-        model = gltf.scene || gltf.scenes?.[0];
-        if (!model) throw new Error("GLTF sin escena");
-        scene.add(model); fitModel(model); setStatus(`Cargado: ${file.name}`);
-      }, undefined, (err)=>{ console.error(err); setStatus("Error GLTF/GLB"); addDemoMesh(); });
-    }
-    else if (ext==="obj" && THREE.OBJLoader) {
-      const loader = new THREE.OBJLoader();
-      loader.load(url, (obj)=>{ model=obj; scene.add(model); fitModel(model); setStatus(`Cargado: ${file.name}`); },
-        undefined, (err)=>{ console.error(err); setStatus("Error OBJ"); addDemoMesh(); });
-    }
-    else if (ext==="stl" && THREE.STLLoader) {
-      const loader = new THREE.STLLoader();
-      loader.load(url, (geometry)=> {
-        model = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color:0x888888, metalness:0.1, roughness:0.8 }));
-        scene.add(model); fitModel(model); setStatus(`Cargado: ${file.name}`);
-      }, undefined, (err)=>{ console.error(err); setStatus("Error STL"); addDemoMesh(); });
-    }
-    else {
-      alert("Formato no compatible. Usa .glb, .gltf, .obj o .stl");
-      addDemoMesh();
-    }
-  }
-
-  function resetCamara3D(){
-    camera.position.set(2,2,4);
-    camera.lookAt(0,0,0);
-    controls?.target?.set(0,0,0); controls?.update?.();
-  }
-
-  function toggleFondo3D(){
-    darkBg = !darkBg;
-    if (scene) scene.background = new THREE.Color(darkBg ? 0x111111 : 0xf0f0f0);
-  }
-
-  function setupDragAndDrop(){
-    const zone = document.getElementById("viewer3d");
-    ["dragenter","dragover"].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.style.outline="3px dashed #7a1026"; setStatus("Suelta el archivo…"); }));
-    ["dragleave","drop"].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.style.outline="none"; }));
-    zone.addEventListener("drop", e => { const f=e.dataTransfer?.files?.[0]; if (f) loadModelFile(f); });
-  }
-
-  // wire up UI
-  document.addEventListener("DOMContentLoaded", () => {
-    init3D();
-    document.getElementById("btnLoad").addEventListener("click", ()=>{
-      const file = document.getElementById("modelInput")?.files?.[0];
-      if (!file) return alert("Selecciona un modelo 3D");
-      loadModelFile(file);
-    });
-    document.getElementById("btnReset").addEventListener("click", resetCamara3D);
-    document.getElementById("btnBg").addEventListener("click", toggleFondo3D);
-  });
-})();
-</script>
+  <!-- Tu JS principal SIEMPRE al final -->
+  <script src="script.js"></script>
 </body>
 </html>
