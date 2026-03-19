@@ -6,7 +6,7 @@ const { generateReceiptPDF } = require("./pdf");
 // CONFIG SENDGRID
 // ===============================
 if (!process.env.SENDGRID_API_KEY) {
-  console.warn("⚠️  SENDGRID_API_KEY no está definida. No se enviarán correos.");
+  console.warn("⚠️ SENDGRID_API_KEY no está definida. No se enviarán correos.");
 } else {
   sg.setApiKey(process.env.SENDGRID_API_KEY);
 }
@@ -16,7 +16,7 @@ function asPercent(n) {
 }
 
 // ===============================
-// ENVÍO DEL TICKET DE COMPRA
+// ENVÍO DEL TICKET DE COMPRA (CORREGIDO)
 // ===============================
 async function sendReceiptEmail({ session, lineItems }) {
   const buyer =
@@ -38,7 +38,7 @@ async function sendReceiptEmail({ session, lineItems }) {
     email: process.env.SELLER_EMAIL || process.env.MAIL_FROM
   };
 
-  // Generar PDF
+  // ======= Generación de PDF =======
   let pdfBuffer = null;
   try {
     pdfBuffer = await generateReceiptPDF({
@@ -55,37 +55,31 @@ async function sendReceiptEmail({ session, lineItems }) {
   const currency = (session?.currency || "mxn").toUpperCase();
 
   const itemsHtml = (lineItems || [])
-    .map(
-      i => `<li>${i.quantity || 1} × ${i.description || "Artículo"} — ${(
-        (i.amount_total || 0) / 100
-      ).toFixed(2)} ${currency}</li>`
-    )
+    .map(i => `<li>${i.quantity || 1} × ${i.description || "Artículo"} — ${((i.amount_total || 0) / 100).toFixed(2)} ${currency}</li>`)
     .join("");
 
   const html = `
     <h2>Gracias por tu compra</h2>
     <p>Tu pago fue procesado correctamente.</p>
     <p><b>Total cobrado (Stripe):</b> ${amount} ${currency}</p>
+
     <h3>Detalles:</h3>
     <ul>${itemsHtml}</ul>
+
     <p><b>Folio Stripe:</b> ${session?.id}</p>
     <p>Adjuntamos tu ticket en PDF con desglose de IVA.</p>
   `;
 
-  const text =
-    [
-      "Gracias por tu compra",
-      `Total cobrado (Stripe): ${amount} ${currency}`,
-      "Detalles:",
-      ...(lineItems || []).map(
-        i =>
-          `- ${i.quantity || 1} × ${i.description || "Artículo"} — ${(
-            (i.amount_total || 0) / 100
-          ).toFixed(2)} ${currency}`
-      ),
-      `Folio Stripe: ${session?.id}`,
-      `IVA aplicado en PDF: ${asPercent(ivaRate)}`
-    ].join("\n");
+  const text = [
+    "Gracias por tu compra",
+    `Total cobrado (Stripe): ${amount} ${currency}`,
+    "Detalles:",
+    ...(lineItems || []).map(
+      i => `- ${i.quantity || 1} × ${i.description || "Artículo"} — ${((i.amount_total || 0) / 100).toFixed(2)} ${currency}`
+    ),
+    `Folio Stripe: ${session?.id}`,
+    `IVA aplicado: ${asPercent(ivaRate)}`
+  ].join("\n");
 
   const attachments = [];
   if (pdfBuffer) {
@@ -108,12 +102,12 @@ async function sendReceiptEmail({ session, lineItems }) {
       attachments
     });
 
-    console.log("📧 Ticket enviado →", buyer, "| SendGrid:", resp?.statusCode);
+    console.log("📧 Ticket enviado →", buyer, "| Status:", resp?.statusCode);
   } catch (err) {
     console.error("❌ Error SendGrid comprador:", err?.response?.body || err);
   }
 
-  // ======== Copia vendedor ========
+  // ======== Copia al vendedor ========
   if (process.env.SELLER_EMAIL) {
     try {
       const [copy] = await sg.send({
@@ -124,7 +118,9 @@ async function sendReceiptEmail({ session, lineItems }) {
         text,
         attachments
       });
+
       console.log("📨 Copia vendedor enviada →", process.env.SELLER_EMAIL);
+
     } catch (err) {
       console.error("❌ Error SendGrid vendedor:", err?.response?.body || err);
     }
@@ -132,18 +128,24 @@ async function sendReceiptEmail({ session, lineItems }) {
 }
 
 // ===============================
-// 2FA — ENVÍO DEL CÓDIGO
+// 2FA — ENVÍO DEL CÓDIGO (CORRECTO)
 // ===============================
 async function sendVerificationCode(email, code) {
   if (!process.env.MAIL_FROM) {
-    throw new Error("MAIL_FROM no está configurado en .env");
+    throw new Error("MAIL_FROM no configurado");
   }
 
   const html = `
-    <h2>Tu código de verificación</h2>
-    <p>Este es tu código para verificar tu identidad:</p>
-    <h1>${code}</h1>
-    <p>Es válido por 5 minutos.</p>
+    <div style="font-family: Arial; padding: 20px;">
+      <h2>Tu código de verificación</h2>
+      <p>Este es tu código:</p>
+
+      <div style="font-size: 36px; font-weight: bold; padding: 10px 0;">
+        ${code}
+      </div>
+
+      <p>Este código es válido 5 minutos.</p>
+    </div>
   `;
 
   const text = `Tu código de verificación es: ${code}`;
@@ -157,7 +159,7 @@ async function sendVerificationCode(email, code) {
       text
     });
 
-    console.log("📩 Código 2FA enviado →", email);
+    console.log("📩 Código 2FA enviado →", email, "| Status:", resp?.statusCode);
   } catch (err) {
     console.error("❌ Error enviando código 2FA:", err?.response?.body || err);
   }
