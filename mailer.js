@@ -16,7 +16,7 @@ function asPercent(n) {
 }
 
 // ===============================
-// ENVÍO DEL TICKET DE COMPRA (ORIGINAL, NO MODIFICADO)
+// ENVÍO DEL TICKET DE COMPRA
 // ===============================
 async function sendReceiptEmail({ session, lineItems }) {
   const buyer =
@@ -25,17 +25,15 @@ async function sendReceiptEmail({ session, lineItems }) {
     null;
 
   if (!buyer) {
-    console.warn("⚠️  Sin email en la sesión. No se envía ticket. session.id:", session?.id);
+    console.warn("⚠️ Sin email del comprador, no se envía ticket.");
     return;
   }
 
-  // IVA configurable (por defecto 16%)
   const ivaRate = process.env.IVA_RATE ? Number(process.env.IVA_RATE) : 0.16;
 
-  // Datos del vendedor (opcionales)
   const seller = {
     name: process.env.SELLER_NAME || "ARK",
-    taxId: process.env.SELLER_TAX_ID || "",     // RFC si lo tienes
+    taxId: process.env.SELLER_TAX_ID || "",
     address: process.env.SELLER_ADDRESS || "",
     email: process.env.SELLER_EMAIL || process.env.MAIL_FROM
   };
@@ -53,11 +51,15 @@ async function sendReceiptEmail({ session, lineItems }) {
     console.error("❌ Error generando PDF:", e);
   }
 
-  // HTML, texto y adjuntos
   const amount = ((session?.amount_total || 0) / 100).toFixed(2);
   const currency = (session?.currency || "mxn").toUpperCase();
+
   const itemsHtml = (lineItems || [])
-    .map(i => `<li>${i.quantity || 1} × ${i.description || "Artículo"} — ${((i.amount_total || 0) / 100).toFixed(2)} ${currency}</li>`)
+    .map(
+      i => `<li>${i.quantity || 1} × ${i.description || "Artículo"} — ${(
+        (i.amount_total || 0) / 100
+      ).toFixed(2)} ${currency}</li>`
+    )
     .join("");
 
   const html = `
@@ -70,31 +72,33 @@ async function sendReceiptEmail({ session, lineItems }) {
     <p>Adjuntamos tu ticket en PDF con desglose de IVA.</p>
   `;
 
-  const text = [
-    "Gracias por tu compra",
-    `Total cobrado (Stripe): ${amount} ${currency}`,
-    "Detalles:",
-    ...(lineItems || []).map(i => `- ${(i.quantity || 1)} × ${(i.description || "Artículo")} — ${((i.amount_total || 0)/100).toFixed(2)} ${currency}`),
-    `Folio Stripe: ${session?.id}`,
-    `IVA aplicado en PDF: ${asPercent(ivaRate)}`
-  ].join("\n");
+  const text =
+    [
+      "Gracias por tu compra",
+      `Total cobrado (Stripe): ${amount} ${currency}`,
+      "Detalles:",
+      ...(lineItems || []).map(
+        i =>
+          `- ${i.quantity || 1} × ${i.description || "Artículo"} — ${(
+            (i.amount_total || 0) / 100
+          ).toFixed(2)} ${currency}`
+      ),
+      `Folio Stripe: ${session?.id}`,
+      `IVA aplicado en PDF: ${asPercent(ivaRate)}`
+    ].join("\n");
 
   const attachments = [];
   if (pdfBuffer) {
     attachments.push({
-      content: pdfBuffer.toString('base64'),
-      filename: `Ticket-ARK-${session?.id || 'compra'}.pdf`,
-      type: 'application/pdf',
-      disposition: 'attachment'
+      content: pdfBuffer.toString("base64"),
+      filename: `Ticket-ARK-${session?.id || "compra"}.pdf`,
+      type: "application/pdf",
+      disposition: "attachment"
     });
   }
 
-  // Enviar al comprador
+  // ======== Enviar al comprador ========
   try {
-    if (!process.env.MAIL_FROM) {
-      throw new Error("MAIL_FROM no está configurado en .env (debe ser sender verificado en SendGrid).");
-    }
-
     const [resp] = await sg.send({
       to: buyer,
       from: process.env.MAIL_FROM,
@@ -106,10 +110,10 @@ async function sendReceiptEmail({ session, lineItems }) {
 
     console.log("📧 Ticket enviado →", buyer, "| SendGrid:", resp?.statusCode);
   } catch (err) {
-    console.error("❌ SendGrid error (comprador):", err?.response?.body || err?.message || err);
+    console.error("❌ Error SendGrid comprador:", err?.response?.body || err);
   }
 
-  // Copia al vendedor
+  // ======== Copia vendedor ========
   if (process.env.SELLER_EMAIL) {
     try {
       const [copy] = await sg.send({
@@ -120,15 +124,15 @@ async function sendReceiptEmail({ session, lineItems }) {
         text,
         attachments
       });
-      console.log("📨 Copia vendedor OK →", process.env.SELLER_EMAIL, "| SendGrid:", copy?.statusCode);
+      console.log("📨 Copia vendedor enviada →", process.env.SELLER_EMAIL);
     } catch (err) {
-      console.error("❌ SendGrid error (vendedor):", err?.response?.body || err?.message || err);
+      console.error("❌ Error SendGrid vendedor:", err?.response?.body || err);
     }
   }
 }
 
 // ===============================
-// 2FA — ENVÍO DEL CÓDIGO POR EMAIL
+// 2FA — ENVÍO DEL CÓDIGO
 // ===============================
 async function sendVerificationCode(email, code) {
   if (!process.env.MAIL_FROM) {
@@ -153,9 +157,9 @@ async function sendVerificationCode(email, code) {
       text
     });
 
-    console.log("📩 Código 2FA enviado →", email, "| SendGrid:", resp?.statusCode);
+    console.log("📩 Código 2FA enviado →", email);
   } catch (err) {
-    console.error("❌ Error enviando código 2FA:", err?.response?.body || err?.message || err);
+    console.error("❌ Error enviando código 2FA:", err?.response?.body || err);
   }
 }
 
