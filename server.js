@@ -18,7 +18,6 @@ const {
 } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const { v4: uuidv4 } = require("uuid");
-const mime = require("mime-types");
 
 // Stripe
 const Stripe = require("stripe");
@@ -37,9 +36,6 @@ try {
 const app = express();
 app.set("trust proxy", 1);
 
-// =========================================================
-// MIDDLEWARES
-// =========================================================
 app.use(
   cors({
     origin: true,
@@ -67,6 +63,7 @@ app.post(
           process.env.STRIPE_WEBHOOK_SECRET
         );
       } catch (err) {
+        console.error("Error webhook:", err);
         return res.status(400).send(`Webhook Error: ${err.message}`);
       }
 
@@ -88,10 +85,10 @@ app.post(
         }
       }
 
-      return res.json({ received: true });
+      res.json({ received: true });
     } catch (e) {
       console.error("Webhook error:", e);
-      return res.status(200).end();
+      res.status(200).end();
     }
   }
 );
@@ -101,7 +98,9 @@ app.post(
 // =========================================================
 app.use(express.json());
 
-// Static
+// =========================================================
+// ARCHIVOS ESTÁTICOS
+// =========================================================
 app.use(express.static(path.join(__dirname)));
 
 // =========================================================
@@ -112,7 +111,48 @@ app.get("/", (req, res) => {
 });
 
 // =========================================================
-// IA (DINOSAURIOS) — Router API (MODELO GRATIS Y SOPORTADO)
+// 🟢 STRIPE: CREAR SESIÓN DE PAGO (REPARADO)
+// =========================================================
+app.post("/crear-pago", async (req, res) => {
+  try {
+    if (!stripe)
+      return res.status(500).json({ error: "Stripe no configurado" });
+
+    const { buyerEmail, items } = req.body;
+
+    if (!buyerEmail)
+      return res.status(400).json({ error: "Falta buyerEmail" });
+
+    if (!items || !Array.isArray(items) || items.length === 0)
+      return res.status(400).json({ error: "Items inválidos" });
+
+    const line_items = items.map((item) => ({
+      price_data: {
+        currency: "mxn",
+        product_data: { name: item.name },
+        unit_amount: Math.round(item.price * 100)
+      },
+      quantity: item.qty
+    }));
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      mode: "payment",
+      customer_email: buyerEmail,
+      line_items,
+      success_url: `${req.protocol}://${req.get("host")}/?pago=success`,
+      cancel_url: `${req.protocol}://${req.get("host")}/?pago=cancel`
+    });
+
+    res.json({ url: session.url });
+  } catch (e) {
+    console.error("❌ Error en /crear-pago:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// =========================================================
+// IA (DINOSAURIOS) — Router API (MODELO GRATIS)
 // =========================================================
 app.post("/chat", async (req, res) => {
   try {
@@ -125,13 +165,11 @@ app.post("/chat", async (req, res) => {
       return res.status(500).json({ error: "Falta HF_API_KEY" });
 
     const systemPrompt = `
-Eres un paleontólogo experto con 20 años de experiencia.
+Eres un paleontólogo experto.
 Respondes únicamente acerca de dinosaurios.
-Siempre usas un tono científico, exacto y educativo.
-No hablas de ningún otro tema.
+Usa lenguaje educativo, claro y científico.
     `;
 
-    // 🚀 Modelo soportado 2026
     const resp = await axios.post(
       "https://router.huggingface.co/v1/chat/completions",
       {
@@ -140,7 +178,7 @@ No hablas de ningún otro tema.
           { role: "system", content: systemPrompt },
           { role: "user", content: pregunta }
         ],
-        max_tokens: 300,
+        max_tokens: 250,
         temperature: 0.5
       },
       {
@@ -158,9 +196,7 @@ No hablas de ningún otro tema.
     res.json({ respuesta });
   } catch (error) {
     console.error("🔥 ERROR IA:", error.response?.data || error.message);
-    res.status(500).json({
-      error: "Error interno al procesar IA"
-    });
+    res.status(500).json({ error: "Error interno al procesar IA" });
   }
 });
 
@@ -292,7 +328,7 @@ app.post("/upload", uploadVideo.single("video"), async (req, res) => {
 });
 
 // =========================================================
-// S3 LIST VIDEOS
+// LIST VIDEOS
 // =========================================================
 app.get("/videos", async (_req, res) => {
   try {
@@ -323,8 +359,8 @@ app.get("/videos", async (_req, res) => {
             s3,
             new GetObjectCommand({
               Bucket: process.env.S3_BUCKET,
-              Key: obj.Key
-            }),
+              Key: obj.Key }
+            ),
             { expiresIn: 3600 }
           )
         }))
