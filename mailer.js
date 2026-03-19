@@ -6,7 +6,7 @@ const { generateReceiptPDF } = require("./pdf");
 // CONFIG SENDGRID
 // ===============================
 if (!process.env.SENDGRID_API_KEY) {
-  console.warn("⚠️  SENDGRID_API_KEY no está definida. No se enviarán correos.");
+  console.warn("⚠️ SENDGRID_API_KEY no está definida. No se enviarán correos.");
 } else {
   sg.setApiKey(process.env.SENDGRID_API_KEY);
 }

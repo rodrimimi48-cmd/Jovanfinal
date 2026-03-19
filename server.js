@@ -111,43 +111,67 @@ app.get("/", (req, res) => {
 });
 
 // =========================================================
-// 🟢 STRIPE: CREAR SESIÓN DE PAGO (REPARADO)
+// 2FA - ENVIAR CÓDIGO
 // =========================================================
-app.post("/crear-pago", async (req, res) => {
+const activeCodes = {}; // memoria temporal
+
+app.post("/enviar-codigo", async (req, res) => {
   try {
-    if (!stripe)
-      return res.status(500).json({ error: "Stripe no configurado" });
+    const { email } = req.body;
 
-    const { buyerEmail, items } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: "Falta email" });
+    }
 
-    if (!buyerEmail)
-      return res.status(400).json({ error: "Falta buyerEmail" });
+    // generar código 6 dígitos
+    const code = Math.floor(100000 + Math.random() * 900000);
 
-    if (!items || !Array.isArray(items) || items.length === 0)
-      return res.status(400).json({ error: "Items inválidos" });
+    // guardar en memoria 5 minutos
+    activeCodes[email] = {
+      code,
+      expires: Date.now() + 5 * 60 * 1000
+    };
 
-    const line_items = items.map((item) => ({
-      price_data: {
-        currency: "mxn",
-        product_data: { name: item.name },
-        unit_amount: Math.round(item.price * 100)
-      },
-      quantity: item.qty
-    }));
+    // enviar al correo
+    await sendVerificationCode(email, code);
 
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      mode: "payment",
-      customer_email: buyerEmail,
-      line_items,
-      success_url: `${req.protocol}://${req.get("host")}/?pago=success`,
-      cancel_url: `${req.protocol}://${req.get("host")}/?pago=cancel`
-    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("❌ Error /enviar-codigo:", err);
+    res.status(500).json({ error: "Error enviando código" });
+  }
+});
 
-    res.json({ url: session.url });
-  } catch (e) {
-    console.error("❌ Error en /crear-pago:", e);
-    res.status(500).json({ error: e.message });
+// =========================================================
+// 2FA - VERIFICAR CÓDIGO
+// =========================================================
+app.post("/verificar-codigo", (req, res) => {
+  try {
+    const { codigo } = req.body;
+
+    const emailEntry = Object.entries(activeCodes).find(
+      ([_, data]) => data.code.toString() === codigo.toString()
+    );
+
+    if (!emailEntry) {
+      return res.status(400).json({ error: "Código incorrecto" });
+    }
+
+    const [email, data] = emailEntry;
+
+    // expirado?
+    if (Date.now() > data.expires) {
+      delete activeCodes[email];
+      return res.status(400).json({ error: "Código expirado" });
+    }
+
+    // válido
+    delete activeCodes[email];
+    res.json({ ok: true });
+
+  } catch (err) {
+    console.error("❌ Error /verificar-codigo:", err);
+    res.status(500).json({ error: "Error verificando código" });
   }
 });
 
