@@ -16,7 +16,7 @@ function asPercent(n) {
 }
 
 // ===============================
-// ENVÍO DEL TICKET DE COMPRA
+// ENVÍO DEL TICKET DE COMPRA (CORREGIDO)
 // ===============================
 async function sendReceiptEmail({ session, lineItems }) {
   const buyer =
@@ -38,7 +38,7 @@ async function sendReceiptEmail({ session, lineItems }) {
     email: process.env.SELLER_EMAIL || process.env.MAIL_FROM
   };
 
-  // Generar PDF
+  // ======= Generación de PDF =======
   let pdfBuffer = null;
   try {
     pdfBuffer = await generateReceiptPDF({
@@ -66,8 +66,10 @@ async function sendReceiptEmail({ session, lineItems }) {
     <h2>Gracias por tu compra</h2>
     <p>Tu pago fue procesado correctamente.</p>
     <p><b>Total cobrado (Stripe):</b> ${amount} ${currency}</p>
+
     <h3>Detalles:</h3>
     <ul>${itemsHtml}</ul>
+
     <p><b>Folio Stripe:</b> ${session?.id}</p>
     <p>Adjuntamos tu ticket en PDF con desglose de IVA.</p>
   `;
@@ -97,7 +99,7 @@ async function sendReceiptEmail({ session, lineItems }) {
     });
   }
 
-  // ======== Enviar al comprador ========
+  // ======= Enviar al comprador =======
   try {
     const [resp] = await sg.send({
       to: buyer,
@@ -113,7 +115,7 @@ async function sendReceiptEmail({ session, lineItems }) {
     console.error("❌ Error SendGrid comprador:", err?.response?.body || err);
   }
 
-  // ======== Copia vendedor ========
+  // ======= Copia al vendedor =======
   if (process.env.SELLER_EMAIL) {
     try {
       const [copy] = await sg.send({
@@ -132,7 +134,7 @@ async function sendReceiptEmail({ session, lineItems }) {
 }
 
 // ===============================
-// 2FA — ENVÍO DEL CÓDIGO
+// 2FA — ENVÍO DEL CÓDIGO (CORREGIDO)
 // ===============================
 async function sendVerificationCode(email, code) {
   if (!process.env.MAIL_FROM) {
@@ -140,10 +142,17 @@ async function sendVerificationCode(email, code) {
   }
 
   const html = `
-    <h2>Tu código de verificación</h2>
-    <p>Este es tu código para verificar tu identidad:</p>
-    <h1>${code}</h1>
-    <p>Es válido por 5 minutos.</p>
+    <div style="font-family: Arial, sans-serif; padding: 20px;">
+      <h2 style="color:#333;">Tu código de verificación</h2>
+      <p>Este es tu código para verificar tu identidad:</p>
+
+      <div style="font-size: 36px; font-weight: bold; padding: 10px 0;">
+        ${code}
+      </div>
+
+      <p>Este código es válido durante <b>5 minutos</b>.</p>
+      <p>No compartas este código con nadie.</p>
+    </div>
   `;
 
   const text = `Tu código de verificación es: ${code}`;
@@ -157,7 +166,7 @@ async function sendVerificationCode(email, code) {
       text
     });
 
-    console.log("📩 Código 2FA enviado →", email);
+    console.log("📩 Código 2FA enviado →", email, "| SendGrid:", resp?.statusCode);
   } catch (err) {
     console.error("❌ Error enviando código 2FA:", err?.response?.body || err);
   }
