@@ -1,8 +1,12 @@
+// mailer.js
 const sg = require("@sendgrid/mail");
 const { generateReceiptPDF } = require("./pdf");
 
+// ===============================
+// CONFIG SENDGRID
+// ===============================
 if (!process.env.SENDGRID_API_KEY) {
-  console.warn("⚠️ SENDGRID_API_KEY no está definida.");
+  console.warn("⚠️  SENDGRID_API_KEY no está definida. No se enviarán correos.");
 } else {
   sg.setApiKey(process.env.SENDGRID_API_KEY);
 }
@@ -12,77 +16,151 @@ function asPercent(n) {
 }
 
 // ===============================
-// ENVÍO DE TICKET
+// ENVÍO DEL TICKET DE COMPRA
 // ===============================
 async function sendReceiptEmail({ session, lineItems }) {
   const buyer =
     session?.customer_details?.email ||
-    session?.customer_email;
+    session?.customer_email ||
+    null;
 
-  if (!buyer) return;
+  if (!buyer) {
+    console.warn("⚠️ Sin email del comprador, no se envía ticket.");
+    return;
+  }
 
-  const ivaRate = Number(process.env.IVA_RATE || 0.16);
+  const ivaRate = process.env.IVA_RATE ? Number(process.env.IVA_RATE) : 0.16;
 
+  const seller = {
+    name: process.env.SELLER_NAME || "ARK",
+    taxId: process.env.SELLER_TAX_ID || "",
+    address: process.env.SELLER_ADDRESS || "",
+    email: process.env.SELLER_EMAIL || process.env.MAIL_FROM
+  };
+
+  // Generar PDF
   let pdfBuffer = null;
   try {
     pdfBuffer = await generateReceiptPDF({
       session,
       lineItems,
       ivaRate,
-      seller: {
-        name: process.env.SELLER_NAME || "ARK",
-        taxId: process.env.SELLER_TAX_ID || "",
-        address: process.env.SELLER_ADDRESS || "",
-        email: process.env.SELLER_EMAIL || process.env.MAIL_FROM
-      }
+      seller
     });
-  } catch (e) {}
+  } catch (e) {
+    console.error("❌ Error generando PDF:", e);
+  }
 
-  const amount = ((session.amount_total || 0) / 100).toFixed(2);
-  const currency = (session.currency || "mxn").toUpperCase();
+  const amount = ((session?.amount_total || 0) / 100).toFixed(2);
+  const currency = (session?.currency || "mxn").toUpperCase();
+
+  const itemsHtml = (lineItems || [])
+    .map(
+      i => `<li>${i.quantity || 1} × ${i.description || "Artículo"} — ${(
+        (i.amount_total || 0) / 100
+      ).toFixed(2)} ${currency}</li>`
+    )
+    .join("");
 
   const html = `
     <h2>Gracias por tu compra</h2>
-    <p>Total cobrado: ${amount} ${currency}</p>
-    <p>Adjuntamos tu ticket en PDF.</p>
+    <p>Tu pago fue procesado correctamente.</p>
+    <p><b>Total cobrado (Stripe):</b> ${amount} ${currency}</p>
+    <h3>Detalles:</h3>
+    <ul>${itemsHtml}</ul>
+    <p><b>Folio Stripe:</b> ${session?.id}</p>
+    <p>Adjuntamos tu ticket en PDF con desglose de IVA.</p>
   `;
 
-  const attachments = pdfBuffer
-    ? [{
-        content: pdfBuffer.toString("base64"),
-        filename: `Ticket-ARK-${session.id}.pdf`,
-        type: "application/pdf",
-        disposition: "attachment"
-      }]
-    : [];
+  const text =
+    [
+      "Gracias por tu compra",
+      `Total cobrado (Stripe): ${amount} ${currency}`,
+      "Detalles:",
+      ...(lineItems || []).map(
+        i =>
+          `- ${i.quantity || 1} × ${i.description || "Artículo"} — ${(
+            (i.amount_total || 0) / 100
+          ).toFixed(2)} ${currency}`
+      ),
+      `Folio Stripe: ${session?.id}`,
+      `IVA aplicado en PDF: ${asPercent(ivaRate)}`
+    ].join("\n");
 
-  await sg.send({
-    to: buyer,
-    from: process.env.MAIL_FROM,
-    subject: "🎟️ Tu ticket ARK",
-    html,
-    text: html,
-    attachments
-  });
+  const attachments = [];
+  if (pdfBuffer) {
+    attachments.push({
+      content: pdfBuffer.toString("base64"),
+      filename: `Ticket-ARK-${session?.id || "compra"}.pdf`,
+      type: "application/pdf",
+      disposition: "attachment"
+    });
+  }
+
+  // ======== Enviar al comprador ========
+  try {
+    const [resp] = await sg.send({
+      to: buyer,
+      from: process.env.MAIL_FROM,
+      subject: "🎟️ Tu ticket de compra (PDF) – ARK",
+      html,
+      text,
+      attachments
+    });
+
+    console.log("📧 Ticket enviado →", buyer, "| SendGrid:", resp?.statusCode);
+  } catch (err) {
+    console.error("❌ Error SendGrid comprador:", err?.response?.body || err);
+  }
+
+  // ======== Copia vendedor ========
+  if (process.env.SELLER_EMAIL) {
+    try {
+      const [copy] = await sg.send({
+        to: process.env.SELLER_EMAIL,
+        from: process.env.MAIL_FROM,
+        subject: "🛒 Nueva compra ARK (PDF adjunto)",
+        html,
+        text,
+        attachments
+      });
+      console.log("📨 Copia vendedor enviada →", process.env.SELLER_EMAIL);
+    } catch (err) {
+      console.error("❌ Error SendGrid vendedor:", err?.response?.body || err);
+    }
+  }
 }
 
 // ===============================
-// ENVÍO DE CÓDIGO 2FA
+// 2FA — ENVÍO DEL CÓDIGO
 // ===============================
 async function sendVerificationCode(email, code) {
+  if (!process.env.MAIL_FROM) {
+    throw new Error("MAIL_FROM no está configurado en .env");
+  }
+
   const html = `
     <h2>Tu código de verificación</h2>
+    <p>Este es tu código para verificar tu identidad:</p>
     <h1>${code}</h1>
-    <p>Válido por 5 minutos.</p>
+    <p>Es válido por 5 minutos.</p>
   `;
 
-  await sg.send({
-    to: email,
-    from: process.env.MAIL_FROM,
-    subject: "🔐 Código de verificación ARK",
-    html,
-    text: `Tu código es: ${code}`
-  });
+  const text = `Tu código de verificación es: ${code}`;
+
+  try {
+    const [resp] = await sg.send({
+      to: email,
+      from: process.env.MAIL_FROM,
+      subject: "🔐 Tu código de verificación ARK",
+      html,
+      text
+    });
+
+    console.log("📩 Código 2FA enviado →", email);
+  } catch (err) {
+    console.error("❌ Error enviando código 2FA:", err?.response?.body || err);
+  }
 }
 
 module.exports = {
