@@ -3,33 +3,285 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ARK - Login</title>
+  <title>Dashboard</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://iframe.cloudflarestream.com/embed.css">
 </head>
-<body class="login-body">
-  <div class="overlay"></div>
-  
-  <div class="login-container">
-    <div class="login-card">
-      <h1>ARK</h1>
-      <p class="subtitle">Accede a tu dashboard</p>
-      
-      <div id="login-step1" class="login-step">
-        <input type="email" id="login-email" placeholder="Correo electrónico" autocomplete="email">
-        <button onclick="solicitarCodigo()">Enviar código de verificación</button>
-        <p id="login-error" class="error-message"></p>
+<body class="dashboard-body">
+  <div class="dashboard-layout">
+    <!-- Sidebar con 3 apartados -->
+    <aside class="sidebar">
+      <nav class="sidebar-nav">
+        <button class="nav-btn active" data-tab="apartado1">
+          <span class="nav-icon">📁</span>
+          <span>Apartado 1</span>
+        </button>
+        <button class="nav-btn" data-tab="apartado2">
+          <span class="nav-icon">📁</span>
+          <span>Apartado 2</span>
+        </button>
+        <button class="nav-btn" data-tab="apartado3">
+          <span class="nav-icon">📁</span>
+          <span>Apartado 3</span>
+        </button>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- APARTADO 1 -->
+      <div id="tab-apartado1" class="tab-content active">
+        <div class="tab-header">
+          <h2>📁 Apartado 1</h2>
+        </div>
+        
+        <div class="pdf-section">
+          <h3>📄 Visualizador PDF</h3>
+          <div class="pdf-selector">
+            <select id="pdf-select-1" onchange="cargarPDF(1)">
+              <option value="">-- Selecciona un PDF --</option>
+            </select>
+            <button onclick="listarPDFs(1)">Actualizar</button>
+          </div>
+          <div id="pdf-viewer-1" class="pdf-viewer" style="display: none;">
+            <div class="pdf-toolbar">
+              <button onclick="prevPage(1)">◀ Anterior</button>
+              <span>Página <span id="current-page-1">0</span> / <span id="total-pages-1">0</span></span>
+              <button onclick="nextPage(1)">Siguiente ▶</button>
+            </div>
+            <canvas id="pdf-canvas-1"></canvas>
+          </div>
+        </div>
+        
+        <div class="video-section">
+          <h3>🎬 Reproductor Cloudflare</h3>
+          <div class="video-selector">
+            <input type="text" id="video-id-1" placeholder="ID del video de Cloudflare">
+            <button onclick="cargarVideo(1)">Cargar Video</button>
+          </div>
+          <div id="player-container-1" class="player-container" style="display: none;">
+            <iframe id="cf-player-1" class="cloudflare-player" src="" frameborder="0" allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;" allowfullscreen></iframe>
+          </div>
+        </div>
+        <div id="error-1" class="error-message"></div>
       </div>
-      
-      <div id="login-step2" class="login-step" style="display: none;">
-        <p>Te enviamos un código a <strong id="email-display"></strong></p>
-        <input type="text" id="login-codigo" placeholder="Código de 6 dígitos" maxlength="6">
-        <button onclick="verificarCodigoLogin()">Verificar y acceder</button>
-        <button class="secondary" onclick="volverAlLogin()">← Cambiar correo</button>
-        <p id="verify-error" class="error-message"></p>
+
+      <!-- APARTADO 2 -->
+      <div id="tab-apartado2" class="tab-content">
+        <div class="tab-header">
+          <h2>📁 Apartado 2</h2>
+        </div>
+        
+        <div class="pdf-section">
+          <h3>📄 Visualizador PDF</h3>
+          <div class="pdf-selector">
+            <select id="pdf-select-2" onchange="cargarPDF(2)">
+              <option value="">-- Selecciona un PDF --</option>
+            </select>
+            <button onclick="listarPDFs(2)">Actualizar</button>
+          </div>
+          <div id="pdf-viewer-2" class="pdf-viewer" style="display: none;">
+            <div class="pdf-toolbar">
+              <button onclick="prevPage(2)">◀ Anterior</button>
+              <span>Página <span id="current-page-2">0</span> / <span id="total-pages-2">0</span></span>
+              <button onclick="nextPage(2)">Siguiente ▶</button>
+            </div>
+            <canvas id="pdf-canvas-2"></canvas>
+          </div>
+        </div>
+        
+        <div class="video-section">
+          <h3>🎬 Reproductor Cloudflare</h3>
+          <div class="video-selector">
+            <input type="text" id="video-id-2" placeholder="ID del video de Cloudflare">
+            <button onclick="cargarVideo(2)">Cargar Video</button>
+          </div>
+          <div id="player-container-2" class="player-container" style="display: none;">
+            <iframe id="cf-player-2" class="cloudflare-player" src="" frameborder="0" allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;" allowfullscreen></iframe>
+          </div>
+        </div>
+        <div id="error-2" class="error-message"></div>
       </div>
-    </div>
+
+      <!-- APARTADO 3 -->
+      <div id="tab-apartado3" class="tab-content">
+        <div class="tab-header">
+          <h2>📁 Apartado 3</h2>
+        </div>
+        
+        <div class="pdf-section">
+          <h3>📄 Visualizador PDF</h3>
+          <div class="pdf-selector">
+            <select id="pdf-select-3" onchange="cargarPDF(3)">
+              <option value="">-- Selecciona un PDF --</option>
+            </select>
+            <button onclick="listarPDFs(3)">Actualizar</button>
+          </div>
+          <div id="pdf-viewer-3" class="pdf-viewer" style="display: none;">
+            <div class="pdf-toolbar">
+              <button onclick="prevPage(3)">◀ Anterior</button>
+              <span>Página <span id="current-page-3">0</span> / <span id="total-pages-3">0</span></span>
+              <button onclick="nextPage(3)">Siguiente ▶</button>
+            </div>
+            <canvas id="pdf-canvas-3"></canvas>
+          </div>
+        </div>
+        
+        <div class="video-section">
+          <h3>🎬 Reproductor Cloudflare</h3>
+          <div class="video-selector">
+            <input type="text" id="video-id-3" placeholder="ID del video de Cloudflare">
+            <button onclick="cargarVideo(3)">Cargar Video</button>
+          </div>
+          <div id="player-container-3" class="player-container" style="display: none;">
+            <iframe id="cf-player-3" class="cloudflare-player" src="" frameborder="0" allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;" allowfullscreen></iframe>
+          </div>
+        </div>
+        <div id="error-3" class="error-message"></div>
+      </div>
+    </main>
   </div>
 
-  <script src="script.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <script>
+    const API_BASE = window.location.origin;
+    
+    // Almacenar documentos PDF por apartado
+    const pdfDocs = { 1: null, 2: null, 3: null };
+    const currentPages = { 1: 1, 2: 1, 3: 1 };
+    
+    // ==================== PDF FUNCTIONS ====================
+    async function listarPDFs(apartado) {
+      const select = document.getElementById(`pdf-select-${apartado}`);
+      select.innerHTML = '<option>Cargando...</option>';
+      
+      try {
+        const res = await fetch(`${API_BASE}/api/listar-pdfs`);
+        const data = await res.json();
+        
+        if (!res.ok) throw new Error(data.error);
+        
+        select.innerHTML = '<option value="">-- Selecciona un PDF --</option>';
+        data.pdfs.forEach(pdf => {
+          const option = document.createElement('option');
+          option.value = pdf;
+          option.textContent = pdf;
+          select.appendChild(option);
+        });
+      } catch (err) {
+        document.getElementById(`error-${apartado}`).textContent = 'Error: ' + err.message;
+      }
+    }
+    
+    async function cargarPDF(apartado) {
+      const select = document.getElementById(`pdf-select-${apartado}`);
+      const filename = select.value;
+      const viewer = document.getElementById(`pdf-viewer-${apartado}`);
+      const errorDiv = document.getElementById(`error-${apartado}`);
+      
+      if (!filename) {
+        viewer.style.display = 'none';
+        return;
+      }
+      
+      errorDiv.textContent = '';
+      viewer.style.display = 'block';
+      
+      try {
+        const res = await fetch(`${API_BASE}/api/pdf/${encodeURIComponent(filename)}`);
+        
+        if (!res.ok) throw new Error('Error al cargar PDF');
+        
+        const arrayBuffer = await res.arrayBuffer();
+        pdfDocs[apartado] = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        document.getElementById(`total-pages-${apartado}`).textContent = pdfDocs[apartado].numPages;
+        renderPagePDF(apartado, 1);
+        
+      } catch (err) {
+        errorDiv.textContent = 'Error: ' + err.message;
+        viewer.style.display = 'none';
+      }
+    }
+    
+    async function renderPagePDF(apartado, pageNum) {
+      if (!pdfDocs[apartado]) return;
+      
+      const page = await pdfDocs[apartado].getPage(pageNum);
+      const canvas = document.getElementById(`pdf-canvas-${apartado}`);
+      const ctx = canvas.getContext('2d');
+      
+      const viewport = page.getViewport({ scale: 1.2 });
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      
+      await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+      document.getElementById(`current-page-${apartado}`).textContent = pageNum;
+      currentPages[apartado] = pageNum;
+    }
+    
+    function prevPage(apartado) {
+      if (currentPages[apartado] > 1) {
+        renderPagePDF(apartado, currentPages[apartado] - 1);
+      }
+    }
+    
+    function nextPage(apartado) {
+      if (pdfDocs[apartado] && currentPages[apartado] < pdfDocs[apartado].numPages) {
+        renderPagePDF(apartado, currentPages[apartado] + 1);
+      }
+    }
+    
+    // ==================== VIDEO FUNCTIONS ====================
+    function cargarVideo(apartado) {
+      const videoId = document.getElementById(`video-id-${apartado}`).value.trim();
+      const playerContainer = document.getElementById(`player-container-${apartado}`);
+      const iframe = document.getElementById(`cf-player-${apartado}`);
+      const errorDiv = document.getElementById(`error-${apartado}`);
+      
+      if (!videoId) {
+        errorDiv.textContent = 'Ingresa un ID de video';
+        return;
+      }
+      
+      errorDiv.textContent = '';
+      playerContainer.style.display = 'block';
+      
+      const videoUrl = `https://iframe.cloudflarestream.com/${videoId}`;
+      iframe.src = videoUrl;
+    }
+    
+    // ==================== NAVEGACIÓN ====================
+    function initTabs() {
+      const navBtns = document.querySelectorAll('.nav-btn');
+      const tabs = document.querySelectorAll('.tab-content');
+      
+      navBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const tabId = btn.getAttribute('data-tab');
+          
+          navBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          
+          tabs.forEach(tab => tab.classList.remove('active'));
+          document.getElementById(`tab-${tabId}`).classList.add('active');
+        });
+      });
+    }
+    
+    // Inicializar
+    document.addEventListener('DOMContentLoaded', () => {
+      initTabs();
+      listarPDFs(1);
+      listarPDFs(2);
+      listarPDFs(3);
+    });
+    
+    // Exponer funciones globales
+    window.listarPDFs = listarPDFs;
+    window.cargarPDF = cargarPDF;
+    window.prevPage = prevPage;
+    window.nextPage = nextPage;
+    window.cargarVideo = cargarVideo;
+  </script>
 </body>
 </html>
