@@ -3,33 +3,205 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ARK - Login</title>
-  <link rel="stylesheet" href="style.css">
+  <title>Login - ARK</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #1e2a44 0%, #2c3e66 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .login-container {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+      width: 400px;
+      padding: 40px;
+    }
+    h1 {
+      text-align: center;
+      color: #2c3e66;
+      margin-bottom: 10px;
+    }
+    .subtitle {
+      text-align: center;
+      color: #666;
+      margin-bottom: 30px;
+    }
+    .login-step {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+    input {
+      padding: 12px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      font-size: 16px;
+      transition: 0.2s;
+    }
+    input:focus {
+      outline: none;
+      border-color: #ff9800;
+    }
+    button {
+      padding: 12px;
+      background: #2c3e66;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    button:hover {
+      background: #ff9800;
+    }
+    button.secondary {
+      background: #666;
+    }
+    button.secondary:hover {
+      background: #444;
+    }
+    .error-message {
+      color: #e74c3c;
+      font-size: 14px;
+      margin-top: 10px;
+      text-align: center;
+    }
+    .success-message {
+      color: #27ae60;
+      font-size: 14px;
+      margin-top: 10px;
+      text-align: center;
+    }
+  </style>
 </head>
-<body class="login-body">
-  <div class="overlay"></div>
-  
+<body>
   <div class="login-container">
-    <div class="login-card">
-      <h1>ARK</h1>
-      <p class="subtitle">Accede a tu dashboard</p>
-      
-      <div id="login-step1" class="login-step">
-        <input type="email" id="login-email" placeholder="Correo electrónico" autocomplete="email">
-        <button onclick="solicitarCodigo()">Enviar código de verificación</button>
-        <p id="login-error" class="error-message"></p>
-      </div>
-      
-      <div id="login-step2" class="login-step" style="display: none;">
-        <p>Te enviamos un código a <strong id="email-display"></strong></p>
-        <input type="text" id="login-codigo" placeholder="Código de 6 dígitos" maxlength="6">
-        <button onclick="verificarCodigoLogin()">Verificar y acceder</button>
-        <button class="secondary" onclick="volverAlLogin()">← Cambiar correo</button>
-        <p id="verify-error" class="error-message"></p>
-      </div>
+    <h1>🔐 ARK</h1>
+    <p class="subtitle">Accede con verificación en 2 pasos</p>
+    
+    <div id="login-step1" class="login-step">
+      <input type="email" id="login-email" placeholder="Correo electrónico" autocomplete="email">
+      <button onclick="solicitarCodigo()">Enviar código de verificación</button>
+      <p id="login-error" class="error-message"></p>
+    </div>
+    
+    <div id="login-step2" class="login-step" style="display: none;">
+      <p>Te enviamos un código a <strong id="email-display"></strong></p>
+      <input type="text" id="login-codigo" placeholder="Código de 6 dígitos" maxlength="6">
+      <button onclick="verificarCodigo()">Verificar y acceder</button>
+      <button class="secondary" onclick="volverAlLogin()">← Cambiar correo</button>
+      <p id="verify-error" class="error-message"></p>
     </div>
   </div>
 
-  <script src="script.js"></script>
+  <script>
+    const API_BASE = window.location.origin;
+    
+    async function solicitarCodigo() {
+      const email = document.getElementById('login-email').value;
+      const errorEl = document.getElementById('login-error');
+      
+      if (!email) {
+        errorEl.textContent = 'Ingresa un correo electrónico';
+        return;
+      }
+      
+      errorEl.textContent = 'Enviando código...';
+      
+      try {
+        const res = await fetch(`${API_BASE}/api/solicitar-codigo`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        
+        const data = await res.json();
+        
+        if (!res.ok) throw new Error(data.error);
+        
+        document.getElementById('login-step1').style.display = 'none';
+        document.getElementById('login-step2').style.display = 'flex';
+        document.getElementById('email-display').textContent = email;
+        document.getElementById('login-error').textContent = '';
+        
+        window.tempLoginEmail = email;
+        
+        if (data.debugCode) {
+          alert(`Código de prueba: ${data.debugCode}\n(Revisa también tu correo)`);
+        }
+        
+      } catch (err) {
+        errorEl.textContent = err.message;
+      }
+    }
+    
+    async function verificarCodigo() {
+      const codigo = document.getElementById('login-codigo').value;
+      const errorEl = document.getElementById('verify-error');
+      const email = window.tempLoginEmail;
+      
+      if (!codigo || codigo.length !== 6) {
+        errorEl.textContent = 'Ingresa el código de 6 dígitos';
+        return;
+      }
+      
+      errorEl.textContent = 'Verificando...';
+      
+      try {
+        const res = await fetch(`${API_BASE}/api/verificar-login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, codigo })
+        });
+        
+        const data = await res.json();
+        
+        if (!res.ok) throw new Error(data.error);
+        
+        localStorage.setItem('ark_token', data.token);
+        localStorage.setItem('ark_user_email', data.email);
+        
+        window.location.href = '/dashboard';
+        
+      } catch (err) {
+        errorEl.textContent = err.message;
+      }
+    }
+    
+    function volverAlLogin() {
+      document.getElementById('login-step1').style.display = 'flex';
+      document.getElementById('login-step2').style.display = 'none';
+      document.getElementById('login-email').value = '';
+      document.getElementById('login-codigo').value = '';
+      window.tempLoginEmail = null;
+    }
+    
+    // Verificar si ya hay sesión
+    async function verificarSesionExistente() {
+      const token = localStorage.getItem('ark_token');
+      if (token) {
+        try {
+          const res = await fetch(`${API_BASE}/api/verificar-sesion`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (res.ok) {
+            window.location.href = '/dashboard';
+          }
+        } catch (err) {}
+      }
+    }
+    
+    verificarSesionExistente();
+  </script>
 </body>
 </html>
