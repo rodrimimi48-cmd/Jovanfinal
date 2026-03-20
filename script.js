@@ -79,6 +79,8 @@ async function verificarCodigoLogin() {
     // Guardar token y redirigir al dashboard
     localStorage.setItem("ark_token", data.token);
     localStorage.setItem("ark_user_email", data.email);
+    
+    // Redirección directa
     window.location.href = "/dashboard";
     
   } catch (err) {
@@ -116,14 +118,16 @@ async function cerrarSesion() {
 // =========================================================
 
 async function verificarSesion() {
-  if (!tokenSesion) {
+  const token = localStorage.getItem("ark_token");
+  
+  if (!token) {
     window.location.href = "/";
     return false;
   }
   
   try {
     const res = await fetch(`${API_BASE}/api/verificar-sesion`, {
-      headers: { "Authorization": `Bearer ${tokenSesion}` }
+      headers: { "Authorization": `Bearer ${token}` }
     });
     
     if (!res.ok) {
@@ -131,7 +135,9 @@ async function verificarSesion() {
     }
     
     const data = await res.json();
-    document.getElementById("user-email").textContent = data.email;
+    const userEmailEl = document.getElementById("user-email");
+    if (userEmailEl) userEmailEl.textContent = data.email;
+    tokenSesion = token;
     return true;
     
   } catch (err) {
@@ -158,7 +164,8 @@ function initDashboard() {
       btn.classList.add("active");
       
       tabs.forEach(tab => tab.classList.remove("active"));
-      document.getElementById(`tab-${tabId}`).classList.add("active");
+      const targetTab = document.getElementById(`tab-${tabId}`);
+      if (targetTab) targetTab.classList.add("active");
     });
   });
   
@@ -271,7 +278,7 @@ function nextPage() {
 }
 
 // =========================================================
-// VIDEO FUNCTIONS (Streaming)
+// VIDEO FUNCTIONS
 // =========================================================
 
 function getFileNameFromKey(key) {
@@ -311,7 +318,7 @@ function setFeatured(videoObj) {
 async function loadVideos() {
   const grid = document.getElementById("videos-grid");
   if (!grid) return;
-  grid.innerHTML = "Cargando...";
+  grid.innerHTML = '<div class="loading">Cargando videos...</div>';
   
   try {
     const r = await fetch(`${API_BASE}/api/videos`, {
@@ -381,7 +388,7 @@ async function loadVideos() {
       grid.appendChild(card);
     });
   } catch (e) {
-    grid.innerHTML = "Error al cargar videos";
+    grid.innerHTML = `<div class="error">Error al cargar videos: ${e.message}</div>`;
     console.error(e);
   }
 }
@@ -428,8 +435,8 @@ async function cargarVideosYouTube() {
   const errorBox = document.getElementById("youtube-error");
   if (!contenedor || !errorBox) return;
   
-  contenedor.innerHTML = "";
-  errorBox.innerText = "Cargando videos...";
+  contenedor.innerHTML = '<div class="loading">Cargando videos...</div>';
+  errorBox.innerText = "";
   
   try {
     const res = await fetch(`${API_BASE}/api/youtube`, {
@@ -438,7 +445,7 @@ async function cargarVideosYouTube() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Error desconocido");
     
-    errorBox.innerText = "";
+    contenedor.innerHTML = "";
     if (!data.items || data.items.length === 0) {
       errorBox.innerText = "No se encontraron videos.";
       return;
@@ -465,6 +472,7 @@ async function cargarVideosYouTube() {
     });
   } catch (err) {
     errorBox.innerText = "Error YouTube: " + err.message;
+    contenedor.innerHTML = "";
   }
 }
 
@@ -473,8 +481,8 @@ async function cargarPostsFacebook() {
   const errorBox = document.getElementById("facebook-error");
   if (!contenedor || !errorBox) return;
   
-  contenedor.innerHTML = "";
-  errorBox.innerText = "Cargando publicaciones...";
+  contenedor.innerHTML = '<div class="loading">Cargando publicaciones...</div>';
+  errorBox.innerText = "";
   
   try {
     const res = await fetch(`${API_BASE}/api/facebook`, {
@@ -483,7 +491,7 @@ async function cargarPostsFacebook() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Error desconocido");
     
-    errorBox.innerText = "";
+    contenedor.innerHTML = "";
     if (!data.data || data.data.length === 0) {
       errorBox.innerText = "No se encontraron publicaciones.";
       return;
@@ -501,6 +509,7 @@ async function cargarPostsFacebook() {
     });
   } catch (err) {
     errorBox.innerText = "Error Facebook: " + err.message;
+    contenedor.innerHTML = "";
   }
 }
 
@@ -510,14 +519,17 @@ async function cargarPostsFacebook() {
 
 document.addEventListener("DOMContentLoaded", async () => {
   // Verificar si estamos en el dashboard o en login
-  if (window.location.pathname.includes("dashboard")) {
+  if (window.location.pathname === "/dashboard" || window.location.pathname.includes("dashboard")) {
     const sesionValida = await verificarSesion();
     if (sesionValida) {
       initDashboard();
       
       // Configurar upload de videos
-      document.getElementById("uploadForm")?.addEventListener("submit", handleUpload);
-      document.getElementById("refreshBtn")?.addEventListener("click", () => loadVideos());
+      const uploadForm = document.getElementById("uploadForm");
+      if (uploadForm) uploadForm.addEventListener("submit", handleUpload);
+      
+      const refreshBtn = document.getElementById("refreshBtn");
+      if (refreshBtn) refreshBtn.addEventListener("click", () => loadVideos());
       
       // Control de espacio para video
       const mainVideo = document.getElementById("main-video");

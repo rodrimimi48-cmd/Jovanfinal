@@ -19,7 +19,7 @@ const {
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const { v4: uuidv4 } = require("uuid");
 
-// Stripe (opcional, lo dejamos pero no se usa en el dashboard)
+// Stripe (opcional)
 const Stripe = require("stripe");
 const stripe = process.env.STRIPE_SECRET_KEY
   ? Stripe(process.env.STRIPE_SECRET_KEY)
@@ -34,12 +34,13 @@ app.set("trust proxy", 1);
 app.use(
   cors({
     origin: true,
-    methods: ["GET", "POST", "HEAD", "OPTIONS"]
+    methods: ["GET", "POST", "HEAD", "OPTIONS"],
+    credentials: true
   })
 );
 
 // =========================================================
-// STRIPE WEBHOOK (mantenido por si acaso)
+// STRIPE WEBHOOK
 // =========================================================
 app.post(
   "/stripe-webhook",
@@ -93,15 +94,14 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
 // =========================================================
-// SESIONES (simple en memoria)
+// SESIONES
 // =========================================================
-const sesionesActivas = new Map(); // token -> { email, expires }
+const sesionesActivas = new Map();
 
 function generarToken() {
   return uuidv4();
 }
 
-// Middleware de autenticación
 function autenticar(req, res, next) {
   const token = req.headers.authorization?.replace("Bearer ", "");
   
@@ -120,9 +120,9 @@ function autenticar(req, res, next) {
 }
 
 // =========================================================
-// 2FA - LOGIN CON VERIFICACIÓN
+// 2FA - LOGIN
 // =========================================================
-const codigosVerificacion = new Map(); // email -> { codigo, expires }
+const codigosVerificacion = new Map();
 
 app.post("/api/solicitar-codigo", async (req, res) => {
   try {
@@ -183,7 +183,7 @@ app.post("/api/verificar-login", async (req, res) => {
     const token = generarToken();
     sesionesActivas.set(token, {
       email,
-      expires: Date.now() + 7 * 24 * 60 * 60 * 1000 // 7 días
+      expires: Date.now() + 7 * 24 * 60 * 60 * 1000
     });
     
     res.json({ success: true, token, email });
@@ -205,16 +205,28 @@ app.get("/api/verificar-sesion", autenticar, async (req, res) => {
 });
 
 // =========================================================
-// RUTAS DEL DASHBOARD (protegidas)
+// RUTAS PRINCIPALES - CORREGIDAS
 // =========================================================
 
-// Ruta principal - sirve el login o dashboard según sesión
+// Ruta raíz - sirve login.html
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
+  res.sendFile(path.join(__dirname, "login.html"));
 });
 
+// Ruta dashboard - sirve dashboard.html
 app.get("/dashboard", (req, res) => {
   res.sendFile(path.join(__dirname, "dashboard.html"));
+});
+
+// Ruta para cualquier otra página HTML
+app.get("/:page.html", (req, res) => {
+  const page = req.params.page;
+  const filePath = path.join(__dirname, `${page}.html`);
+  if (fs.existsSync(filePath)) {
+    res.sendFile(filePath);
+  } else {
+    res.status(404).send("Página no encontrada");
+  }
 });
 
 // =========================================================
@@ -230,7 +242,7 @@ const pdfStorage = multer.diskStorage({
 
 const uploadPDF = multer({
   storage: pdfStorage,
-  limits: { fileSize: 1024 * 1024 * 50 }, // 50MB
+  limits: { fileSize: 1024 * 1024 * 50 },
   fileFilter: (_req, file, cb) => {
     if (file.mimetype !== "application/pdf") {
       return cb(new Error("Solo se permiten archivos PDF"));
@@ -239,8 +251,7 @@ const uploadPDF = multer({
   }
 });
 
-// Almacenamiento temporal de PDFs (en memoria)
-const pdfsAlmacenados = new Map(); // id -> { buffer, nombre }
+const pdfsAlmacenados = new Map();
 
 app.post("/api/upload-pdf", autenticar, uploadPDF.single("pdf"), async (req, res) => {
   const temp = req.file?.path;
