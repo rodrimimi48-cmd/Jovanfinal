@@ -10,14 +10,17 @@ const axios = require("axios");
 const fs = require("fs");
 const os = require("os");
 const multer = require("multer");
-const { S3Client, PutObjectCommand, ListObjectsV2Command, GetObjectCommand } = require("@aws-sdk/client-s3");
+const { S3Client, PutObjectCommand, ListObjectsV2Command, GetObjectCommand } =
+  require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const { v4: uuidv4 } = require("uuid");
 const mime = require("mime-types");
 
 // Stripe
 const Stripe = require("stripe");
-const stripe = process.env.STRIPE_SECRET_KEY ? Stripe(process.env.STRIPE_SECRET_KEY) : null;
+const stripe = process.env.STRIPE_SECRET_KEY
+  ? Stripe(process.env.STRIPE_SECRET_KEY)
+  : null;
 
 // Mailer
 let sendReceiptEmail = async () => {};
@@ -30,14 +33,15 @@ try {
 const app = express();
 app.set("trust proxy", 1);
 
-app.use(cors({ origin: true, methods: ["GET","POST","HEAD","OPTIONS"] }));
+app.use(cors({ origin: true, methods: ["GET", "POST", "HEAD", "OPTIONS"] }));
 app.use(express.static(path.join(__dirname)));
 app.use(express.json());
 
 // ========================
 // STRIPE WEBHOOK
 // ========================
-app.post("/stripe-webhook",
+app.post(
+  "/stripe-webhook",
   express.raw({ type: "application/json" }),
   async (req, res) => {
     try {
@@ -66,7 +70,7 @@ app.post("/stripe-webhook",
         try {
           await sendReceiptEmail({
             session,
-            lineItems: lineItems.data
+            lineItems: lineItems.data,
           });
         } catch {}
       }
@@ -75,7 +79,8 @@ app.post("/stripe-webhook",
     } catch {
       return res.status(200).end();
     }
-});
+  }
+);
 
 // =========================================
 // RUTA PRINCIPAL
@@ -85,7 +90,7 @@ app.get("/", (req, res) => {
 });
 
 // =========================================
-//  IA (DINOSAURIOS) — FIX DEFINITIVO
+// IA (DINOSAURIOS) — Router API (MODELO FUNCIONAL)
 // =========================================
 app.post("/chat", async (req, res) => {
   try {
@@ -97,18 +102,26 @@ app.post("/chat", async (req, res) => {
     if (!process.env.HF_API_KEY)
       return res.status(500).json({ error: "Falta HF_API_KEY" });
 
-    // IA optimizada SOLO para DINOSAURIOS
-    const prompt = `
-Eres un experto en dinosaurios. 
-Responde de forma clara, educativa y precisa.
+    // Prompt especializado
+    const systemPrompt = `
+Eres un paleontólogo experto con 20 años de experiencia.
+Respondes únicamente acerca de dinosaurios.
+Siempre usas un tono científico, exacto y educativo.
+NO hablas de ningún otro tema.
+    `;
 
-Pregunta del usuario:
-${pregunta}
-`;
-
-    const respuestaHF = await axios.post(
-      "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3",
-      { inputs: prompt },
+    // ✔ Modelo que sí está soportado por router.huggingface.co
+    const resp = await axios.post(
+      "https://router.huggingface.co/v1/chat/completions",
+      {
+        model: "meta-llama/Llama-3.2-1B-Instruct",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: pregunta }
+        ],
+        max_tokens: 300,
+        temperature: 0.5
+      },
       {
         headers: {
           Authorization: `Bearer ${process.env.HF_API_KEY}`,
@@ -118,14 +131,16 @@ ${pregunta}
     );
 
     const respuesta =
-      respuestaHF.data?.[0]?.generated_text ||
-      "No pude generar una respuesta.";
+      resp.data?.choices?.[0]?.message?.content?.trim() ||
+      "No pude generar respuesta.";
 
     res.json({ respuesta });
 
   } catch (error) {
-    console.error("🔥 ERROR IA:", error.response?.data || error.message);
-    res.status(500).json({ error: "Error interno al procesar IA" });
+    console.error("🔥 ERROR IA (Router):", error.response?.data || error.message);
+    res.status(500).json({
+      error: "Error interno al procesar IA"
+    });
   }
 });
 
@@ -137,7 +152,7 @@ app.get("/config/mapbox", (_req, res) => {
   if (!token) {
     return res.status(500).json({
       mapboxToken: "",
-      error: "MAPBOX_PUBLIC_TOKEN no configurado"
+      error: "MAPBOX_PUBLIC_TOKEN no configurado",
     });
   }
   res.json({ mapboxToken: token });
@@ -157,12 +172,11 @@ app.get("/youtube", async (_req, res) => {
         q: "Animales prehistóricos documentales",
         type: "video",
         maxResults: 6,
-        key: process.env.YOUTUBE_API_KEY
+        key: process.env.YOUTUBE_API_KEY,
       },
     });
 
     res.json(r.data);
-
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -181,13 +195,12 @@ app.get("/facebook", async (_req, res) => {
       {
         params: {
           fields: "message,permalink_url,created_time",
-          access_token: process.env.FB_ACCESS_TOKEN
-        }
+          access_token: process.env.FB_ACCESS_TOKEN,
+        },
       }
     );
 
     res.json(r.data);
-
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -211,10 +224,10 @@ const storage = multer.diskStorage({
   filename: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase() || ".bin";
     cb(null, `${uuidv4()}${ext}`);
-  }
+  },
 });
 
-const allowedVideoMimes = ["video/mp4","video/webm","video/ogg"];
+const allowedVideoMimes = ["video/mp4", "video/webm", "video/ogg"];
 
 const uploadVideo = multer({
   storage,
@@ -243,13 +256,12 @@ app.post("/upload", uploadVideo.single("video"), async (req, res) => {
         Bucket: process.env.S3_BUCKET,
         Key: key,
         Body: fs.createReadStream(temp),
-        ContentType: req.file.mimetype
+        ContentType: req.file.mimetype,
       })
     );
 
     fs.unlink(temp, () => {});
     res.json({ ok: true, key });
-
   } catch (err) {
     if (temp) fs.unlink(temp, () => {});
     res.status(500).json({ error: err.message });
@@ -267,7 +279,7 @@ app.get("/videos", async (_req, res) => {
     const list = await s3.send(
       new ListObjectsV2Command({
         Bucket: process.env.S3_BUCKET,
-        Prefix: "videos/"
+        Prefix: "videos/",
       })
     );
 
@@ -277,8 +289,8 @@ app.get("/videos", async (_req, res) => {
 
     const result = await Promise.all(
       items
-        .filter(obj => obj.Key && !obj.Key.endsWith("/"))
-        .map(async obj => ({
+        .filter((obj) => obj.Key && !obj.Key.endsWith("/"))
+        .map(async (obj) => ({
           key: obj.Key,
           size: obj.Size,
           lastModified: obj.LastModified,
@@ -286,15 +298,14 @@ app.get("/videos", async (_req, res) => {
             s3,
             new GetObjectCommand({
               Bucket: process.env.S3_BUCKET,
-              Key: obj.Key
+              Key: obj.Key,
             }),
             { expiresIn: 3600 }
-          )
+          ),
         }))
     );
 
     res.json({ videos: result });
-
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
