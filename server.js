@@ -25,13 +25,8 @@ const stripe = process.env.STRIPE_SECRET_KEY
   ? Stripe(process.env.STRIPE_SECRET_KEY)
   : null;
 
-// Mailer
-let sendReceiptEmail = async () => {};
-try {
-  ({ sendReceiptEmail } = require("./mailer"));
-} catch (e) {
-  console.warn("[WARN] mailer no encontrado");
-}
+// Mailer - IMPORTANTE: Importar ambas funciones
+const { sendReceiptEmail, sendVerificationCode } = require("./mailer");
 
 const app = express();
 app.set("trust proxy", 1);
@@ -111,7 +106,7 @@ app.get("/", (req, res) => {
 });
 
 // =========================================================
-// 2FA - ENVÍO Y VERIFICACIÓN DE CÓDIGOS
+// 2FA - ENVÍO Y VERIFICACIÓN DE CÓDIGOS (CORREGIDO CON MAILER)
 // =========================================================
 const codigosVerificacion = new Map();
 
@@ -130,9 +125,17 @@ app.post("/enviar-codigo", async (req, res) => {
       expires: Date.now() + 10 * 60 * 1000
     });
     
-    console.log(`[2FA] Código para ${email}: ${codigo}`);
-    
-    res.json({ success: true, message: "Código enviado correctamente" });
+    // Enviar correo usando mailer.js
+    try {
+      await sendVerificationCode(email, codigo);
+      console.log(`[2FA] Código enviado a ${email}: ${codigo}`);
+      res.json({ success: true, message: "Código enviado a tu correo" });
+    } catch (mailError) {
+      console.error("Error enviando correo:", mailError);
+      // Si falla el envío, igual mostramos en consola para debug
+      console.log(`[2FA] Código para ${email}: ${codigo}`);
+      res.json({ success: true, message: "Código generado (revisa consola si no llega el correo)" });
+    }
     
   } catch (error) {
     console.error("Error enviando código:", error);

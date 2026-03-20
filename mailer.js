@@ -140,26 +140,53 @@ async function sendVerificationCode(email, code) {
   }
 
   const html = `
-    <h2>Tu código de verificación</h2>
-    <p>Este es tu código para verificar tu identidad:</p>
-    <h1>${code}</h1>
-    <p>Es válido por 5 minutos.</p>
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        body { font-family: Arial, sans-serif; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .code { 
+          font-size: 32px; 
+          font-weight: bold; 
+          background: #f0f0f0; 
+          padding: 20px; 
+          text-align: center;
+          letter-spacing: 5px;
+          border-radius: 8px;
+          margin: 20px 0;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h2>🔐 Tu código de verificación ARK</h2>
+        <p>Este es tu código para verificar tu identidad:</p>
+        <div class="code">${code}</div>
+        <p>Es válido por <strong>10 minutos</strong>.</p>
+        <p>Si no solicitaste este código, ignora este mensaje.</p>
+      </div>
+    </body>
+    </html>
   `;
 
-  const text = `Tu código de verificación es: ${code}`;
+  const text = `Tu código de verificación ARK es: ${code}\n\nEste código expirará en 10 minutos.\n\nSi no solicitaste este código, ignora este mensaje.`;
 
   try {
     const [resp] = await sg.send({
       to: email,
       from: process.env.MAIL_FROM,
-      subject: "🔐 Tu código de verificación ARK",
+      subject: "🔐 Código de verificación ARK",
       html,
       text
     });
 
-    console.log("📩 Código 2FA enviado →", email);
+    console.log(`📩 Código 2FA enviado → ${email} | Código: ${code}`);
+    return resp;
   } catch (err) {
     console.error("❌ Error enviando código 2FA:", err?.response?.body || err);
+    throw err;
   }
 }
 
