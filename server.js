@@ -1,5 +1,5 @@
 // ======================
-// server.js — ARK Backend
+// server.js — ARK Backend (Dashboard + Login)
 // ======================
 
 require("dotenv").config();
@@ -19,13 +19,13 @@ const {
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const { v4: uuidv4 } = require("uuid");
 
-// Stripe
+// Stripe (opcional, lo dejamos pero no se usa en el dashboard)
 const Stripe = require("stripe");
 const stripe = process.env.STRIPE_SECRET_KEY
   ? Stripe(process.env.STRIPE_SECRET_KEY)
   : null;
 
-// Mailer - IMPORTANTE: Importar ambas funciones
+// Mailer
 const { sendReceiptEmail, sendVerificationCode } = require("./mailer");
 
 const app = express();
@@ -39,7 +39,7 @@ app.use(
 );
 
 // =========================================================
-// ⚠️ STRIPE WEBHOOK — DEBE IR ANTES DE express.json()
+// STRIPE WEBHOOK (mantenido por si acaso)
 // =========================================================
 app.post(
   "/stripe-webhook",
@@ -88,34 +88,48 @@ app.post(
   }
 );
 
-// =========================================================
-// express.json DESPUÉS DEL WEBHOOK
-// =========================================================
+// Middleware
 app.use(express.json());
-
-// =========================================================
-// ARCHIVOS ESTÁTICOS
-// =========================================================
 app.use(express.static(path.join(__dirname)));
 
 // =========================================================
-// RUTA PRINCIPAL
+// SESIONES (simple en memoria)
 // =========================================================
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
-});
+const sesionesActivas = new Map(); // token -> { email, expires }
+
+function generarToken() {
+  return uuidv4();
+}
+
+// Middleware de autenticación
+function autenticar(req, res, next) {
+  const token = req.headers.authorization?.replace("Bearer ", "");
+  
+  if (!token) {
+    return res.status(401).json({ error: "No autorizado" });
+  }
+  
+  const session = sesionesActivas.get(token);
+  if (!session || session.expires < Date.now()) {
+    if (session) sesionesActivas.delete(token);
+    return res.status(401).json({ error: "Sesión expirada" });
+  }
+  
+  req.userEmail = session.email;
+  next();
+}
 
 // =========================================================
-// 2FA - ENVÍO Y VERIFICACIÓN DE CÓDIGOS (CORREGIDO CON MAILER)
+// 2FA - LOGIN CON VERIFICACIÓN
 // =========================================================
-const codigosVerificacion = new Map();
+const codigosVerificacion = new Map(); // email -> { codigo, expires }
 
-app.post("/enviar-codigo", async (req, res) => {
+app.post("/api/solicitar-codigo", async (req, res) => {
   try {
     const { email } = req.body;
     
-    if (!email) {
-      return res.status(400).json({ error: "Se requiere un correo electrónico" });
+    if (!email || !email.includes("@")) {
+      return res.status(400).json({ error: "Correo inválido" });
     }
     
     const codigo = Math.floor(100000 + Math.random() * 900000).toString();
@@ -125,167 +139,160 @@ app.post("/enviar-codigo", async (req, res) => {
       expires: Date.now() + 10 * 60 * 1000
     });
     
-    // Enviar correo usando mailer.js
     try {
       await sendVerificationCode(email, codigo);
       console.log(`[2FA] Código enviado a ${email}: ${codigo}`);
       res.json({ success: true, message: "Código enviado a tu correo" });
     } catch (mailError) {
       console.error("Error enviando correo:", mailError);
-      // Si falla el envío, igual mostramos en consola para debug
       console.log(`[2FA] Código para ${email}: ${codigo}`);
-      res.json({ success: true, message: "Código generado (revisa consola si no llega el correo)" });
+      res.json({ success: true, message: "Código generado (revisa la consola del servidor)" });
     }
     
   } catch (error) {
-    console.error("Error enviando código:", error);
+    console.error("Error:", error);
     res.status(500).json({ error: "Error al enviar el código" });
   }
 });
 
-app.post("/verificar-codigo", async (req, res) => {
+app.post("/api/verificar-login", async (req, res) => {
   try {
-    const { codigo } = req.body;
+    const { email, codigo } = req.body;
     
-    if (!codigo) {
-      return res.status(400).json({ error: "Se requiere un código" });
+    if (!email || !codigo) {
+      return res.status(400).json({ error: "Faltan datos" });
     }
     
-    let found = false;
-    let userEmail = null;
+    const registro = codigosVerificacion.get(email);
     
-    for (const [email, data] of codigosVerificacion.entries()) {
-      if (data.codigo === codigo && data.expires > Date.now()) {
-        found = true;
-        userEmail = email;
-        break;
-      }
+    if (!registro) {
+      return res.status(400).json({ error: "Código no solicitado o expirado" });
     }
     
-    if (found) {
-      if (userEmail) codigosVerificacion.delete(userEmail);
-      res.json({ success: true, message: "Código verificado correctamente" });
-    } else {
-      res.status(400).json({ error: "Código inválido o expirado" });
+    if (registro.expires < Date.now()) {
+      codigosVerificacion.delete(email);
+      return res.status(400).json({ error: "Código expirado" });
     }
+    
+    if (registro.codigo !== codigo) {
+      return res.status(400).json({ error: "Código incorrecto" });
+    }
+    
+    // Código correcto, crear sesión
+    codigosVerificacion.delete(email);
+    const token = generarToken();
+    sesionesActivas.set(token, {
+      email,
+      expires: Date.now() + 7 * 24 * 60 * 60 * 1000 // 7 días
+    });
+    
+    res.json({ success: true, token, email });
     
   } catch (error) {
-    console.error("Error verificando código:", error);
-    res.status(500).json({ error: "Error al verificar el código" });
+    console.error("Error:", error);
+    res.status(500).json({ error: "Error al verificar" });
   }
 });
 
+app.post("/api/cerrar-sesion", autenticar, async (req, res) => {
+  const token = req.headers.authorization?.replace("Bearer ", "");
+  if (token) sesionesActivas.delete(token);
+  res.json({ success: true });
+});
+
+app.get("/api/verificar-sesion", autenticar, async (req, res) => {
+  res.json({ email: req.userEmail });
+});
+
 // =========================================================
-// 🟢 STRIPE: CREAR SESIÓN DE PAGO
+// RUTAS DEL DASHBOARD (protegidas)
 // =========================================================
-app.post("/crear-pago", async (req, res) => {
+
+// Ruta principal - sirve el login o dashboard según sesión
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
+
+app.get("/dashboard", (req, res) => {
+  res.sendFile(path.join(__dirname, "dashboard.html"));
+});
+
+// =========================================================
+// PDF HANDLING
+// =========================================================
+const pdfStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, os.tmpdir()),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `${uuidv4()}${ext}`);
+  }
+});
+
+const uploadPDF = multer({
+  storage: pdfStorage,
+  limits: { fileSize: 1024 * 1024 * 50 }, // 50MB
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype !== "application/pdf") {
+      return cb(new Error("Solo se permiten archivos PDF"));
+    }
+    cb(null, true);
+  }
+});
+
+// Almacenamiento temporal de PDFs (en memoria)
+const pdfsAlmacenados = new Map(); // id -> { buffer, nombre }
+
+app.post("/api/upload-pdf", autenticar, uploadPDF.single("pdf"), async (req, res) => {
+  const temp = req.file?.path;
+  
   try {
-    if (!stripe)
-      return res.status(500).json({ error: "Stripe no configurado" });
-
-    const { buyerEmail, items } = req.body;
-
-    if (!buyerEmail)
-      return res.status(400).json({ error: "Falta buyerEmail" });
-
-    if (!items || !Array.isArray(items) || items.length === 0)
-      return res.status(400).json({ error: "Items inválidos" });
-
-    const line_items = items.map((item) => ({
-      price_data: {
-        currency: "mxn",
-        product_data: { name: item.name },
-        unit_amount: Math.round(item.price * 100)
-      },
-      quantity: item.qty
-    }));
-
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      mode: "payment",
-      customer_email: buyerEmail,
-      line_items,
-      success_url: `${req.protocol}://${req.get("host")}/?pago=success`,
-      cancel_url: `${req.protocol}://${req.get("host")}/?pago=cancel`
+    if (!req.file) {
+      return res.status(400).json({ error: "No se recibió archivo" });
+    }
+    
+    const pdfBuffer = fs.readFileSync(temp);
+    const pdfId = uuidv4();
+    
+    pdfsAlmacenados.set(pdfId, {
+      buffer: pdfBuffer,
+      nombre: req.file.originalname,
+      email: req.userEmail,
+      uploadedAt: new Date()
     });
-
-    res.json({ url: session.url });
-  } catch (e) {
-    console.error("❌ Error en /crear-pago:", e);
-    res.status(500).json({ error: e.message });
+    
+    fs.unlink(temp, () => {});
+    
+    res.json({ success: true, pdfId, nombre: req.file.originalname });
+  } catch (err) {
+    if (temp) fs.unlink(temp, () => {});
+    res.status(500).json({ error: err.message });
   }
 });
 
-// =========================================================
-// IA (DINOSAURIOS)
-// =========================================================
-app.post("/chat", async (req, res) => {
-  try {
-    const { pregunta } = req.body;
-
-    if (!pregunta)
-      return res.status(400).json({ error: "Falta pregunta" });
-
-    if (!process.env.HF_API_KEY)
-      return res.status(500).json({ error: "Falta HF_API_KEY" });
-
-    const systemPrompt = `
-Eres un paleontólogo experto.
-Respondes únicamente acerca de dinosaurios.
-Usa lenguaje educativo, claro y científico.
-    `;
-
-    const resp = await axios.post(
-      "https://router.huggingface.co/v1/chat/completions",
-      {
-        model: "meta-llama/Llama-3.2-1B-Instruct",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: pregunta }
-        ],
-        max_tokens: 250,
-        temperature: 0.5
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.HF_API_KEY}`,
-          "Content-Type": "application/json"
-        }
-      }
-    );
-
-    const respuesta =
-      resp.data?.choices?.[0]?.message?.content?.trim() ||
-      "No pude generar respuesta.";
-
-    res.json({ respuesta });
-  } catch (error) {
-    console.error("🔥 ERROR IA:", error.response?.data || error.message);
-    res.status(500).json({ error: "Error interno al procesar IA" });
+app.get("/api/get-pdf/:id", autenticar, async (req, res) => {
+  const pdf = pdfsAlmacenados.get(req.params.id);
+  
+  if (!pdf) {
+    return res.status(404).json({ error: "PDF no encontrado" });
   }
-});
-
-// =========================================================
-// MAPBOX TOKEN
-// =========================================================
-app.get("/config/mapbox", (_req, res) => {
-  const token = process.env.MAPBOX_PUBLIC_TOKEN || "";
-  if (!token) {
-    return res.status(500).json({
-      mapboxToken: "",
-      error: "MAPBOX_PUBLIC_TOKEN no configurado"
-    });
+  
+  if (pdf.email !== req.userEmail) {
+    return res.status(403).json({ error: "No autorizado" });
   }
-  res.json({ mapboxToken: token });
+  
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", "inline; filename=" + encodeURIComponent(pdf.nombre));
+  res.send(pdf.buffer);
 });
 
 // =========================================================
 // YOUTUBE
 // =========================================================
-app.get("/youtube", async (_req, res) => {
+app.get("/api/youtube", autenticar, async (_req, res) => {
   try {
-    if (!process.env.YOUTUBE_API_KEY)
+    if (!process.env.YOUTUBE_API_KEY) {
       return res.status(500).json({ error: "Falta YOUTUBE_API_KEY" });
+    }
 
     const r = await axios.get(
       "https://www.googleapis.com/youtube/v3/search",
@@ -309,10 +316,11 @@ app.get("/youtube", async (_req, res) => {
 // =========================================================
 // FACEBOOK
 // =========================================================
-app.get("/facebook", async (_req, res) => {
+app.get("/api/facebook", autenticar, async (_req, res) => {
   try {
-    if (!process.env.FB_PAGE_ID || !process.env.FB_ACCESS_TOKEN)
+    if (!process.env.FB_PAGE_ID || !process.env.FB_ACCESS_TOKEN) {
       return res.status(500).json({ error: "Faltan credenciales FB" });
+    }
 
     const r = await axios.get(
       `https://graph.facebook.com/${process.env.FB_PAGE_ID}/posts`,
@@ -331,7 +339,7 @@ app.get("/facebook", async (_req, res) => {
 });
 
 // =========================================================
-// S3 / R2 UPLOAD
+// S3 / R2 UPLOAD (VIDEOS)
 // =========================================================
 const s3 = new S3Client({
   region: process.env.S3_REGION || "auto",
@@ -357,21 +365,24 @@ const uploadVideo = multer({
   storage,
   limits: { fileSize: 1024 * 1024 * 500 },
   fileFilter: (_req, file, cb) => {
-    if (!allowedVideoMimes.includes(file.mimetype))
-      return cb(new Error("Formato inválido"));
+    if (!allowedVideoMimes.includes(file.mimetype)) {
+      return cb(new Error("Formato inválido. Solo MP4, WEBM, OGG"));
+    }
     cb(null, true);
   }
 });
 
-app.post("/upload", uploadVideo.single("video"), async (req, res) => {
+app.post("/api/upload-video", autenticar, uploadVideo.single("video"), async (req, res) => {
   const temp = req.file?.path;
 
   try {
-    if (!process.env.S3_BUCKET)
+    if (!process.env.S3_BUCKET) {
       return res.status(500).json({ error: "Falta S3_BUCKET" });
+    }
 
-    if (!req.file)
-      return res.status(400).json({ error: "No file" });
+    if (!req.file) {
+      return res.status(400).json({ error: "No se recibió archivo" });
+    }
 
     const key = `videos/${req.file.filename}`;
 
@@ -392,13 +403,11 @@ app.post("/upload", uploadVideo.single("video"), async (req, res) => {
   }
 });
 
-// =========================================================
-// LIST VIDEOS
-// =========================================================
-app.get("/videos", async (_req, res) => {
+app.get("/api/videos", autenticar, async (_req, res) => {
   try {
-    if (!process.env.S3_BUCKET)
+    if (!process.env.S3_BUCKET) {
       return res.status(500).json({ error: "Falta S3_BUCKET" });
+    }
 
     const list = await s3.send(
       new ListObjectsV2Command({
@@ -424,8 +433,8 @@ app.get("/videos", async (_req, res) => {
             s3,
             new GetObjectCommand({
               Bucket: process.env.S3_BUCKET,
-              Key: obj.Key }
-            ),
+              Key: obj.Key
+            }),
             { expiresIn: 3600 }
           )
         }))
