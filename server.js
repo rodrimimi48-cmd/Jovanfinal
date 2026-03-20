@@ -1,5 +1,5 @@
 // ======================
-// server.js â€” ARK Backend
+// server.js — ARK Backend
 // ======================
 
 require("dotenv").config();
@@ -10,11 +10,14 @@ const axios = require("axios");
 const fs = require("fs");
 const os = require("os");
 const multer = require("multer");
-const { S3Client, PutObjectCommand, ListObjectsV2Command, GetObjectCommand } =
-  require("@aws-sdk/client-s3");
+const {
+  S3Client,
+  PutObjectCommand,
+  ListObjectsV2Command,
+  GetObjectCommand
+} = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const { v4: uuidv4 } = require("uuid");
-const mime = require("mime-types");
 
 // Stripe
 const Stripe = require("stripe");
@@ -33,13 +36,16 @@ try {
 const app = express();
 app.set("trust proxy", 1);
 
-app.use(cors({ origin: true, methods: ["GET", "POST", "HEAD", "OPTIONS"] }));
-app.use(express.static(path.join(__dirname)));
-app.use(express.json());
+app.use(
+  cors({
+    origin: true,
+    methods: ["GET", "POST", "HEAD", "OPTIONS"]
+  })
+);
 
-// ========================
-// STRIPE WEBHOOK
-// ========================
+// =========================================================
+// ⚠️ STRIPE WEBHOOK — DEBE IR ANTES DE express.json()
+// =========================================================
 app.post(
   "/stripe-webhook",
   express.raw({ type: "application/json" }),
@@ -49,6 +55,7 @@ app.post(
 
       const sig = req.headers["stripe-signature"];
       let event;
+
       try {
         event = stripe.webhooks.constructEvent(
           req.body,
@@ -56,6 +63,7 @@ app.post(
           process.env.STRIPE_WEBHOOK_SECRET
         );
       } catch (err) {
+        console.error("Error webhook:", err);
         return res.status(400).send(`Webhook Error: ${err.message}`);
       }
 
@@ -70,28 +78,82 @@ app.post(
         try {
           await sendReceiptEmail({
             session,
-            lineItems: lineItems.data,
+            lineItems: lineItems.data
           });
-        } catch {}
+        } catch (e) {
+          console.error("Error enviando ticket:", e);
+        }
       }
 
-      return res.json({ received: true });
-    } catch {
-      return res.status(200).end();
+      res.json({ received: true });
+    } catch (e) {
+      console.error("Webhook error:", e);
+      res.status(200).end();
     }
   }
 );
 
-// =========================================
+// =========================================================
+// express.json DESPUÉS DEL WEBHOOK
+// =========================================================
+app.use(express.json());
+
+// =========================================================
+// ARCHIVOS ESTÁTICOS
+// =========================================================
+app.use(express.static(path.join(__dirname)));
+
+// =========================================================
 // RUTA PRINCIPAL
-// =========================================
+// =========================================================
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "Index.html"));
 });
 
-// =========================================
-// IA (DINOSAURIOS) â€” Router API (MODELO FUNCIONAL)
-// =========================================
+// =========================================================
+// 🟢 STRIPE: CREAR SESIÓN DE PAGO (REPARADO)
+// =========================================================
+app.post("/crear-pago", async (req, res) => {
+  try {
+    if (!stripe)
+      return res.status(500).json({ error: "Stripe no configurado" });
+
+    const { buyerEmail, items } = req.body;
+
+    if (!buyerEmail)
+      return res.status(400).json({ error: "Falta buyerEmail" });
+
+    if (!items || !Array.isArray(items) || items.length === 0)
+      return res.status(400).json({ error: "Items inválidos" });
+
+    const line_items = items.map((item) => ({
+      price_data: {
+        currency: "mxn",
+        product_data: { name: item.name },
+        unit_amount: Math.round(item.price * 100)
+      },
+      quantity: item.qty
+    }));
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      mode: "payment",
+      customer_email: buyerEmail,
+      line_items,
+      success_url: `${req.protocol}://${req.get("host")}/?pago=success`,
+      cancel_url: `${req.protocol}://${req.get("host")}/?pago=cancel`
+    });
+
+    res.json({ url: session.url });
+  } catch (e) {
+    console.error("❌ Error en /crear-pago:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// =========================================================
+// IA (DINOSAURIOS) — Router API (MODELO GRATIS)
+// =========================================================
 app.post("/chat", async (req, res) => {
   try {
     const { pregunta } = req.body;
@@ -102,15 +164,12 @@ app.post("/chat", async (req, res) => {
     if (!process.env.HF_API_KEY)
       return res.status(500).json({ error: "Falta HF_API_KEY" });
 
-    // Prompt especializado
     const systemPrompt = `
-Eres un paleontÃ³logo experto con 20 aÃ±os de experiencia.
-Respondes Ãºnicamente acerca de dinosaurios.
-Siempre usas un tono cientÃ­fico, exacto y educativo.
-NO hablas de ningÃºn otro tema.
+Eres un paleontólogo experto.
+Respondes únicamente acerca de dinosaurios.
+Usa lenguaje educativo, claro y científico.
     `;
 
-    // âœ” Modelo que sÃ­ estÃ¡ soportado por router.huggingface.co
     const resp = await axios.post(
       "https://router.huggingface.co/v1/chat/completions",
       {
@@ -119,7 +178,7 @@ NO hablas de ningÃºn otro tema.
           { role: "system", content: systemPrompt },
           { role: "user", content: pregunta }
         ],
-        max_tokens: 300,
+        max_tokens: 250,
         temperature: 0.5
       },
       {
@@ -135,46 +194,46 @@ NO hablas de ningÃºn otro tema.
       "No pude generar respuesta.";
 
     res.json({ respuesta });
-
   } catch (error) {
-    console.error("ðŸ”¥ ERROR IA (Router):", error.response?.data || error.message);
-    res.status(500).json({
-      error: "Error interno al procesar IA"
-    });
+    console.error("🔥 ERROR IA:", error.response?.data || error.message);
+    res.status(500).json({ error: "Error interno al procesar IA" });
   }
 });
 
-// =========================================
-// MAPBOX
-// =========================================
+// =========================================================
+// MAPBOX TOKEN
+// =========================================================
 app.get("/config/mapbox", (_req, res) => {
   const token = process.env.MAPBOX_PUBLIC_TOKEN || "";
   if (!token) {
     return res.status(500).json({
       mapboxToken: "",
-      error: "MAPBOX_PUBLIC_TOKEN no configurado",
+      error: "MAPBOX_PUBLIC_TOKEN no configurado"
     });
   }
   res.json({ mapboxToken: token });
 });
 
-// =========================================
+// =========================================================
 // YOUTUBE
-// =========================================
+// =========================================================
 app.get("/youtube", async (_req, res) => {
   try {
     if (!process.env.YOUTUBE_API_KEY)
       return res.status(500).json({ error: "Falta YOUTUBE_API_KEY" });
 
-    const r = await axios.get("https://www.googleapis.com/youtube/v3/search", {
-      params: {
-        part: "snippet",
-        q: "Animales prehistÃ³ricos documentales",
-        type: "video",
-        maxResults: 6,
-        key: process.env.YOUTUBE_API_KEY,
-      },
-    });
+    const r = await axios.get(
+      "https://www.googleapis.com/youtube/v3/search",
+      {
+        params: {
+          part: "snippet",
+          q: "Animales prehistóricos documentales",
+          type: "video",
+          maxResults: 6,
+          key: process.env.YOUTUBE_API_KEY
+        }
+      }
+    );
 
     res.json(r.data);
   } catch (err) {
@@ -182,9 +241,9 @@ app.get("/youtube", async (_req, res) => {
   }
 });
 
-// =========================================
+// =========================================================
 // FACEBOOK
-// =========================================
+// =========================================================
 app.get("/facebook", async (_req, res) => {
   try {
     if (!process.env.FB_PAGE_ID || !process.env.FB_ACCESS_TOKEN)
@@ -195,8 +254,8 @@ app.get("/facebook", async (_req, res) => {
       {
         params: {
           fields: "message,permalink_url,created_time",
-          access_token: process.env.FB_ACCESS_TOKEN,
-        },
+          access_token: process.env.FB_ACCESS_TOKEN
+        }
       }
     );
 
@@ -206,17 +265,17 @@ app.get("/facebook", async (_req, res) => {
   }
 });
 
-// =========================================
-// S3 / R2 â€” UPLOAD
-// =========================================
+// =========================================================
+// S3 / R2 UPLOAD
+// =========================================================
 const s3 = new S3Client({
   region: process.env.S3_REGION || "auto",
   endpoint: process.env.S3_ENDPOINT,
   forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true",
   credentials: {
     accessKeyId: process.env.S3_ACCESS_KEY_ID || "",
-    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || "",
-  },
+    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || ""
+  }
 });
 
 const storage = multer.diskStorage({
@@ -224,7 +283,7 @@ const storage = multer.diskStorage({
   filename: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase() || ".bin";
     cb(null, `${uuidv4()}${ext}`);
-  },
+  }
 });
 
 const allowedVideoMimes = ["video/mp4", "video/webm", "video/ogg"];
@@ -234,9 +293,9 @@ const uploadVideo = multer({
   limits: { fileSize: 1024 * 1024 * 500 },
   fileFilter: (_req, file, cb) => {
     if (!allowedVideoMimes.includes(file.mimetype))
-      return cb(new Error("Formato invÃ¡lido"));
+      return cb(new Error("Formato inválido"));
     cb(null, true);
-  },
+  }
 });
 
 app.post("/upload", uploadVideo.single("video"), async (req, res) => {
@@ -256,7 +315,7 @@ app.post("/upload", uploadVideo.single("video"), async (req, res) => {
         Bucket: process.env.S3_BUCKET,
         Key: key,
         Body: fs.createReadStream(temp),
-        ContentType: req.file.mimetype,
+        ContentType: req.file.mimetype
       })
     );
 
@@ -268,9 +327,9 @@ app.post("/upload", uploadVideo.single("video"), async (req, res) => {
   }
 });
 
-// =========================================
-// S3 / R2 â€” LIST VIDEOS
-// =========================================
+// =========================================================
+// LIST VIDEOS
+// =========================================================
 app.get("/videos", async (_req, res) => {
   try {
     if (!process.env.S3_BUCKET)
@@ -279,13 +338,15 @@ app.get("/videos", async (_req, res) => {
     const list = await s3.send(
       new ListObjectsV2Command({
         Bucket: process.env.S3_BUCKET,
-        Prefix: "videos/",
+        Prefix: "videos/"
       })
     );
 
     const items = list.Contents || [];
 
-    items.sort((a, b) => new Date(b.LastModified) - new Date(a.LastModified));
+    items.sort(
+      (a, b) => new Date(b.LastModified) - new Date(a.LastModified)
+    );
 
     const result = await Promise.all(
       items
@@ -298,10 +359,10 @@ app.get("/videos", async (_req, res) => {
             s3,
             new GetObjectCommand({
               Bucket: process.env.S3_BUCKET,
-              Key: obj.Key,
-            }),
+              Key: obj.Key }
+            ),
             { expiresIn: 3600 }
-          ),
+          )
         }))
     );
 
@@ -311,11 +372,11 @@ app.get("/videos", async (_req, res) => {
   }
 });
 
-// =========================================
+// =========================================================
 // PUERTO
-// =========================================
+// =========================================================
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log(`ðŸš€ Servidor corriendo â†’ http://localhost:${PORT}`);
+  console.log(`🚀 Servidor corriendo → http://localhost:${PORT}`);
 });
