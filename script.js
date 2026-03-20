@@ -1,13 +1,24 @@
-//** -------------- TU SCRIPT.JS COMPLETO CON CORRECCIÃ“N MAPBOX 3D -------------- **/
+//** -------------- TU SCRIPT.JS COMPLETO CON CORRECCIÓN MAPBOX 3D -------------- **/
 
 /* ============================
-   script.js â€” Proyecto ARK
+   script.js — Proyecto ARK
    ============================
    - SIN Three.js
    - Mapbox GL 3D (modo caminar)
    - Google Maps 2D
    - IA / YouTube / Facebook / Streaming / Stripe / 2FA
 ================================ */
+
+//////////////////////
+// MANEJO GLOBAL DE ERRORES
+//////////////////////
+window.addEventListener('error', (event) => {
+  console.error('Error global:', event.error);
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Promesa rechazada no manejada:', event.reason);
+});
 
 //////////////////////
 // BASE DEL API
@@ -18,43 +29,60 @@ const API_BASE = window.location.origin;
 // 2FA SIMPLE
 //////////////////////
 async function enviarCodigo() {
-  const email = prompt("Ingresa tu correo para enviarte el cÃ³digo:");
+  const email = prompt("Ingresa tu correo para enviarte el código:");
 
   if (!email) return alert("Debes ingresar un correo.");
 
-  const r = await fetch(`${API_BASE}/enviar-codigo`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email })
-  });
+  try {
+    const r = await fetch(`${API_BASE}/enviar-codigo`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email })
+    });
 
-  const data = await r.json();
+    const data = await r.json();
 
-  if (!r.ok) return alert("Error: " + data.error);
+    if (!r.ok) return alert("Error: " + data.error);
 
-  alert("CÃ³digo enviado a tu correo.");
+    alert("Código enviado a tu correo.");
+  } catch (error) {
+    console.error("Error enviando código:", error);
+    alert("Error al enviar el código. Revisa la consola.");
+  }
 }
 
 async function verificarCodigo() {
   const codigo = document.getElementById("codigo").value;
   const msg = document.getElementById("verificacion-msg");
 
+  if (!codigo) {
+    msg.style.color = "red";
+    msg.innerText = "Ingresa el código";
+    return;
+  }
+
   msg.innerText = "Verificando...";
 
-  const r = await fetch(`${API_BASE}/verificar-codigo`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ codigo })
-  });
+  try {
+    const r = await fetch(`${API_BASE}/verificar-codigo`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ codigo })
+    });
 
-  const data = await r.json();
+    const data = await r.json();
 
-  if (r.ok) {
-    msg.style.color = "green";
-    msg.innerText = "CÃ³digo correcto âœ”ï¸";
-  } else {
+    if (r.ok) {
+      msg.style.color = "green";
+      msg.innerText = "Código correcto ✓";
+    } else {
+      msg.style.color = "red";
+      msg.innerText = data.error;
+    }
+  } catch (error) {
     msg.style.color = "red";
-    msg.innerText = data.error;
+    msg.innerText = "Error al verificar";
+    console.error(error);
   }
 }
 
@@ -218,7 +246,7 @@ function setFeatured(videoObj) {
   const fecha = videoObj?.lastModified ? new Date(videoObj.lastModified).toLocaleString() : "";
   
   if (mainFilename) mainFilename.textContent = name || "Video";
-  if (mainExtra) mainExtra.textContent = `${size ? `TamaÃ±o: ${size} Â· ` : ""}${fecha ? `Modificado: ${fecha}` : ""}`;
+  if (mainExtra) mainExtra.textContent = `${size ? `Tamaño: ${size} · ` : ""}${fecha ? `Modificado: ${fecha}` : ""}`;
 
   document.querySelector(".player")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -267,7 +295,7 @@ async function loadVideos(keepKey) {
           </div>
         </div>
         <div class="video-meta">
-          <div><b>TamaÃ±o:</b> ${formatBytes(v.size)}</div>
+          <div><b>Tamaño:</b> ${formatBytes(v.size)}</div>
           <div><b>Modificado:</b> ${v.lastModified ? new Date(v.lastModified).toLocaleString() : ""}</div>
         </div>
       `;
@@ -313,7 +341,7 @@ async function handleUpload(e) {
     const r = await fetch(`${API_BASE}/upload`, { method: "POST", body: fd });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || "Error de subida");
-    if (status) status.textContent = "âœ“ Subido";
+    if (status) status.textContent = "✓ Subido";
     await loadVideos();
   } catch (err) {
     if (status) status.textContent = "Error: " + err.message;
@@ -335,7 +363,7 @@ async function pagar() {
       emailInput?.focus();
       return;
     }
-    const items = [{ name: "DonaciÃ³n ARK", qty: 1, price: 12.0 }];
+    const items = [{ name: "Donación ARK", qty: 1, price: 12.0 }];
 
     const res = await fetch(`${window.location.origin}/crear-pago`, {
       method: "POST",
@@ -354,13 +382,13 @@ async function pagar() {
     }
   } catch (e) {
     alert("Error al iniciar pago: " + e.message);
-    console.error("âŒ /crear-pago error:", e);
+    console.error("❌ /crear-pago error:", e);
   }
 }
 window.pagar = pagar;
 
 //////////////////////
-// MAPBOX 3D â€” corregido
+// MAPBOX 3D — CORREGIDO
 //////////////////////
 let MAPBOX_TOKEN = "";
 
@@ -374,7 +402,7 @@ async function loadMapboxTokenAndInit() {
     MAPBOX_TOKEN = mapboxToken;
     initMap3DWalk();
   } catch (e) {
-    if (err) err.textContent = "Mapbox no inicializÃ³: " + e.message;
+    if (err) err.textContent = "Mapbox no inicializó: " + e.message;
     console.error(e);
   }
 }
@@ -383,59 +411,88 @@ function initMap3DWalk() {
   mapboxgl.accessToken = MAPBOX_TOKEN;
 
   const el = document.getElementById("map3d");
-  if (!el) return;
+  if (!el) {
+    console.error("Elemento map3d no encontrado");
+    return;
+  }
 
-  const map = new mapboxgl.Map({
-    container: "map3d",
-    style: "mapbox://styles/mapbox/streets-v12",
-    center: [-99.1332, 19.4326],
-    zoom: 16,
-    pitch: 60,
-    bearing: 40,
-    antialias: true
-  });
-
-  map.addControl(new mapboxgl.NavigationControl(), "top-right");
-  map.addControl(new mapboxgl.FullscreenControl());
-
-  const hint = document.createElement("div");
-  Object.assign(hint.style, {
-    position: "absolute", right: "10px", bottom: "10px",
-    background: "rgba(0,0,0,.55)", color: "#fff",
-    padding: "8px 10px", borderRadius: "8px",
-    fontSize: "12px", pointerEvents: "none"
-  });
-  hint.textContent = "Click para capturar mouse â€¢ W/A/S/D = mover â€¢ RatÃ³n = mirar â€¢ Q/E = subir/bajar â€¢ Shift = sprint â€¢ Esc = liberar";
-  el.appendChild(hint);
-
-  map.on("style.load", () => {
-    map.setFog({ range: [0.5, 10], color: "#d6e5fb", "horizon-blend": 0.02 });
-
-    map.addSource("mapbox-dem", {
-      type: "raster-dem",
-      url: "mapbox://mapbox.mapbox-terrain-dem-v1",
-      tileSize: 512,
-      maxzoom: 14
+  try {
+    const map = new mapboxgl.Map({
+      container: "map3d",
+      style: "mapbox://styles/mapbox/streets-v12",
+      center: [-99.1332, 19.4326],
+      zoom: 16,
+      pitch: 60,
+      bearing: 40,
+      antialias: true
     });
-    map.setTerrain({ source: "mapbox-dem", exaggeration: 1.3 });
 
-    map.addLayer({
-      id: "3d-buildings",
-      source: "composite",
-      "source-layer": "building",
-      filter: ["==", "extrude", "true"],
-      type: "fill-extrusion",
-      minzoom: 15,
-      paint: {
-        "fill-extrusion-color": "#aaa",
-        "fill-extrusion-height": ["get", "height"],
-        "fill-extrusion-base": ["get", "min_height"],
-        "fill-extrusion-opacity": 0.6
+    map.addControl(new mapboxgl.NavigationControl(), "top-right");
+    map.addControl(new mapboxgl.FullscreenControl());
+
+    const hint = document.createElement("div");
+    Object.assign(hint.style, {
+      position: "absolute",
+      right: "10px",
+      bottom: "10px",
+      background: "rgba(0,0,0,.75)",
+      color: "#fff",
+      padding: "8px 12px",
+      borderRadius: "8px",
+      fontSize: "11px",
+      pointerEvents: "none",
+      zIndex: "1000",
+      fontFamily: "monospace"
+    });
+    hint.textContent = "🎮 Click para activar | W/A/S/D = mover | Ratón = mirar | Q/E = subir/bajar | Shift = sprint | ESC = liberar";
+    el.appendChild(hint);
+
+    map.on("error", (e) => {
+      console.error("Mapbox error:", e);
+      const errEl = document.getElementById("map3d-error");
+      if (errEl) errEl.textContent = "Error en mapa 3D: " + (e.error?.message || e.message);
+    });
+
+    map.on("load", () => {
+      try {
+        map.setFog({ range: [0.5, 10], color: "#d6e5fb", "horizon-blend": 0.02 });
+
+        map.addSource("mapbox-dem", {
+          type: "raster-dem",
+          url: "mapbox://mapbox.mapbox-terrain-dem-v1",
+          tileSize: 512,
+          maxzoom: 14
+        });
+        map.setTerrain({ source: "mapbox-dem", exaggeration: 1.3 });
+
+        map.addLayer({
+          id: "3d-buildings",
+          source: "composite",
+          "source-layer": "building",
+          filter: ["==", "extrude", "true"],
+          type: "fill-extrusion",
+          minzoom: 15,
+          paint: {
+            "fill-extrusion-color": "#aaa",
+            "fill-extrusion-height": ["get", "height"],
+            "fill-extrusion-base": ["get", "min_height"],
+            "fill-extrusion-opacity": 0.6
+          }
+        });
+
+        setupFirstPerson(map, el);
+      } catch (err) {
+        console.error("Error configurando mapa 3D:", err);
+        const errEl = document.getElementById("map3d-error");
+        if (errEl) errEl.textContent = "Error: " + err.message;
       }
     });
-
-    setupFirstPerson(map, el);
-  });
+    
+  } catch (err) {
+    console.error("Error creando mapa:", err);
+    const errEl = document.getElementById("map3d-error");
+    if (errEl) errEl.textContent = "Error al inicializar mapa 3D: " + err.message;
+  }
 }
 
 function setupFirstPerson(map, containerEl) {
@@ -449,41 +506,73 @@ function setupFirstPerson(map, containerEl) {
   const keys = new Set();
   let pointerLocked = false;
   let lastTs = performance.now();
+  let isMoving = false;
 
   containerEl.addEventListener("click", () => {
-    containerEl.requestPointerLock?.();
+    if (!pointerLocked) {
+      containerEl.requestPointerLock();
+    }
   });
+  
   document.addEventListener("pointerlockchange", () => {
     pointerLocked = (document.pointerLockElement === containerEl);
+    if (!pointerLocked) {
+      isMoving = false;
+    }
   });
+  
   document.addEventListener("mousemove", (e) => {
     if (!pointerLocked) return;
     const sens = 0.0025;
-    yaw   -= e.movementX * sens;
+    yaw -= e.movementX * sens;
     pitch -= e.movementY * sens;
     const maxPitch = 85 * deg;
-    if (pitch >  maxPitch) pitch =  maxPitch;
+    if (pitch > maxPitch) pitch = maxPitch;
     if (pitch < -maxPitch) pitch = -maxPitch;
   });
 
-  window.addEventListener("keydown", (e) => keys.add(e.code));
-  window.addEventListener("keyup",   (e) => keys.delete(e.code));
+  window.addEventListener("keydown", (e) => {
+    keys.add(e.code);
+    const moveKeys = ["KeyW", "KeyS", "KeyA", "KeyD", "KeyQ", "KeyE", "ShiftLeft", "ShiftRight"];
+    if (moveKeys.includes(e.code)) {
+      e.preventDefault();
+    }
+  });
+  
+  window.addEventListener("keyup", (e) => keys.delete(e.code));
+  
+  document.addEventListener("keydown", (e) => {
+    if (e.code === "Escape" && pointerLocked) {
+      document.exitPointerLock();
+    }
+  });
+
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function wrapLng(lng) {
+    while (lng > 180) lng -= 360;
+    while (lng < -180) lng += 360;
+    return lng;
+  }
 
   function step(dt) {
-    const forwardX =  Math.cos(yaw);
-    const forwardY =  Math.sin(yaw);
-    const rightX   = -Math.sin(yaw);
-    const rightY   =  Math.cos(yaw);
+    if (!pointerLocked) return;
+    
+    const forwardX = Math.cos(yaw);
+    const forwardY = Math.sin(yaw);
+    const rightX = -Math.sin(yaw);
+    const rightY = Math.cos(yaw);
 
     let v = speed * (keys.has("ShiftLeft") || keys.has("ShiftRight") ? sprint : 1.0);
     let dx = 0, dy = 0, dz = 0;
 
-    if (keys.has("KeyW")) { dx += forwardX * v * dt; dy += forwardY * v * dt; }
-    if (keys.has("KeyS")) { dx -= forwardX * v * dt; dy -= forwardY * v * dt; }
-    if (keys.has("KeyA")) { dx -= rightX   * v * dt; dy -= rightY   * v * dt; }
-    if (keys.has("KeyD")) { dx += rightX   * v * dt; dy += rightY   * v * dt; }
-    if (keys.has("KeyQ")) { dz += v * dt; }
-    if (keys.has("KeyE")) { dz -= v * dt; }
+    if (keys.has("KeyW")) { dx += forwardX * v * dt; dy += forwardY * v * dt; isMoving = true; }
+    if (keys.has("KeyS")) { dx -= forwardX * v * dt; dy -= forwardY * v * dt; isMoving = true; }
+    if (keys.has("KeyA")) { dx -= rightX * v * dt; dy -= rightY * v * dt; isMoving = true; }
+    if (keys.has("KeyD")) { dx += rightX * v * dt; dy += rightY * v * dt; isMoving = true; }
+    if (keys.has("KeyQ")) { dz += v * dt; isMoving = true; }
+    if (keys.has("KeyE")) { dz -= v * dt; isMoving = true; }
+
+    if (!isMoving) return;
 
     const dLat = (dy / EARTH_R) * (180 / Math.PI);
     const dLng = (dx / (EARTH_R * Math.cos(pos.lat * deg))) * (180 / Math.PI);
@@ -492,38 +581,39 @@ function setupFirstPerson(map, containerEl) {
     pos.lng = wrapLng(pos.lng + dLng);
     pos.alt = Math.max(1, pos.alt + dz);
 
-    const forwardMeters = 10;
+    const lookDistance = 20;
     const fx = Math.cos(pitch) * Math.cos(yaw);
     const fy = Math.cos(pitch) * Math.sin(yaw);
+    const fz = Math.sin(pitch);
 
-    const targetLat = pos.lat + (forwardMeters * fy / EARTH_R) * (180 / Math.PI);
-    const targetLng = pos.lng + (forwardMeters * fx / (EARTH_R * Math.cos(pos.lat * deg))) * (180 / Math.PI);
+    const targetLat = pos.lat + (lookDistance * fy / EARTH_R) * (180 / Math.PI);
+    const targetLng = pos.lng + (lookDistance * fx / (EARTH_R * Math.cos(pos.lat * deg))) * (180 / Math.PI);
+    
     const target = [targetLng, targetLat];
-
-    const cam = map.getFreeCameraOptions();
-    const mc = mapboxgl.MercatorCoordinate.fromLngLat([pos.lng, pos.lat], pos.alt);
-
-    /** âœ” CORRECCIÃ“N IMPORTANTE â€” Mapbox GL JS v3 ya no usa toVector3() */
-    cam.position = [mc.x, mc.y, mc.z];
-
-    cam.lookAtPoint(target);
-    map.setFreeCameraOptions(cam);
+    
+    try {
+      const cam = map.getFreeCameraOptions();
+      if (!cam) return;
+      
+      const mc = mapboxgl.MercatorCoordinate.fromLngLat([pos.lng, pos.lat], pos.alt);
+      cam.position = [mc.x, mc.y, mc.z];
+      cam.lookAtPoint(target);
+      map.setFreeCameraOptions(cam);
+    } catch (err) {
+      console.warn("Error actualizando cámara:", err);
+    }
   }
 
   function animate(ts) {
-    const dt = Math.min(0.05, (ts - lastTs) / 1000);
+    const dt = Math.min(0.033, (ts - lastTs) / 1000);
     lastTs = ts;
-    step(dt);
+    if (dt > 0 && dt < 0.1) {
+      step(dt);
+    }
     requestAnimationFrame(animate);
   }
+  
   requestAnimationFrame(animate);
-
-  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
-  function wrapLng(lng) {
-    while (lng >  180) lng -= 360;
-    while (lng < -180) lng += 360;
-    return lng;
-  }
 }
 
 //////////////////////

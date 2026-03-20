@@ -107,11 +107,73 @@ app.use(express.static(path.join(__dirname)));
 // RUTA PRINCIPAL
 // =========================================================
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "Index.html"));
+  res.sendFile(path.join(__dirname, "index.html"));
 });
 
 // =========================================================
-// 🟢 STRIPE: CREAR SESIÓN DE PAGO (REPARADO)
+// 2FA - ENVÍO Y VERIFICACIÓN DE CÓDIGOS
+// =========================================================
+const codigosVerificacion = new Map();
+
+app.post("/enviar-codigo", async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ error: "Se requiere un correo electrónico" });
+    }
+    
+    const codigo = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    codigosVerificacion.set(email, {
+      codigo,
+      expires: Date.now() + 10 * 60 * 1000
+    });
+    
+    console.log(`[2FA] Código para ${email}: ${codigo}`);
+    
+    res.json({ success: true, message: "Código enviado correctamente" });
+    
+  } catch (error) {
+    console.error("Error enviando código:", error);
+    res.status(500).json({ error: "Error al enviar el código" });
+  }
+});
+
+app.post("/verificar-codigo", async (req, res) => {
+  try {
+    const { codigo } = req.body;
+    
+    if (!codigo) {
+      return res.status(400).json({ error: "Se requiere un código" });
+    }
+    
+    let found = false;
+    let userEmail = null;
+    
+    for (const [email, data] of codigosVerificacion.entries()) {
+      if (data.codigo === codigo && data.expires > Date.now()) {
+        found = true;
+        userEmail = email;
+        break;
+      }
+    }
+    
+    if (found) {
+      if (userEmail) codigosVerificacion.delete(userEmail);
+      res.json({ success: true, message: "Código verificado correctamente" });
+    } else {
+      res.status(400).json({ error: "Código inválido o expirado" });
+    }
+    
+  } catch (error) {
+    console.error("Error verificando código:", error);
+    res.status(500).json({ error: "Error al verificar el código" });
+  }
+});
+
+// =========================================================
+// 🟢 STRIPE: CREAR SESIÓN DE PAGO
 // =========================================================
 app.post("/crear-pago", async (req, res) => {
   try {
@@ -152,7 +214,7 @@ app.post("/crear-pago", async (req, res) => {
 });
 
 // =========================================================
-// IA (DINOSAURIOS) — Router API (MODELO GRATIS)
+// IA (DINOSAURIOS)
 // =========================================================
 app.post("/chat", async (req, res) => {
   try {
