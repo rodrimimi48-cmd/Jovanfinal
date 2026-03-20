@@ -1,5 +1,5 @@
 // ======================
-// server.js — ARK Backend
+// server.js â€” ARK Backend
 // ======================
 
 require("dotenv").config();
@@ -90,7 +90,7 @@ app.get("/", (req, res) => {
 });
 
 // =========================================
-// IA (DINOSAURIOS) — Router API (MODELO FUNCIONAL)
+// IA (DINOSAURIOS) â€” Router API (MODELO FUNCIONAL)
 // =========================================
 app.post("/chat", async (req, res) => {
   try {
@@ -104,13 +104,13 @@ app.post("/chat", async (req, res) => {
 
     // Prompt especializado
     const systemPrompt = `
-Eres un paleontólogo experto con 20 años de experiencia.
-Respondes únicamente acerca de dinosaurios.
-Siempre usas un tono científico, exacto y educativo.
-NO hablas de ningún otro tema.
+Eres un paleontÃ³logo experto con 20 aÃ±os de experiencia.
+Respondes Ãºnicamente acerca de dinosaurios.
+Siempre usas un tono cientÃ­fico, exacto y educativo.
+NO hablas de ningÃºn otro tema.
     `;
 
-    // ✔ Modelo que sí está soportado por router.huggingface.co
+    // âœ” Modelo que sÃ­ estÃ¡ soportado por router.huggingface.co
     const resp = await axios.post(
       "https://router.huggingface.co/v1/chat/completions",
       {
@@ -137,7 +137,7 @@ NO hablas de ningún otro tema.
     res.json({ respuesta });
 
   } catch (error) {
-    console.error("🔥 ERROR IA (Router):", error.response?.data || error.message);
+    console.error("ðŸ”¥ ERROR IA (Router):", error.response?.data || error.message);
     res.status(500).json({
       error: "Error interno al procesar IA"
     });
@@ -169,7 +169,7 @@ app.get("/youtube", async (_req, res) => {
     const r = await axios.get("https://www.googleapis.com/youtube/v3/search", {
       params: {
         part: "snippet",
-        q: "Animales prehistóricos documentales",
+        q: "Animales prehistÃ³ricos documentales",
         type: "video",
         maxResults: 6,
         key: process.env.YOUTUBE_API_KEY,
@@ -207,7 +207,7 @@ app.get("/facebook", async (_req, res) => {
 });
 
 // =========================================
-// S3 / R2 — UPLOAD
+// S3 / R2 â€” UPLOAD
 // =========================================
 const s3 = new S3Client({
   region: process.env.S3_REGION || "auto",
@@ -234,7 +234,7 @@ const uploadVideo = multer({
   limits: { fileSize: 1024 * 1024 * 500 },
   fileFilter: (_req, file, cb) => {
     if (!allowedVideoMimes.includes(file.mimetype))
-      return cb(new Error("Formato inválido"));
+      return cb(new Error("Formato invÃ¡lido"));
     cb(null, true);
   },
 });
@@ -269,7 +269,7 @@ app.post("/upload", uploadVideo.single("video"), async (req, res) => {
 });
 
 // =========================================
-// S3 / R2 — LIST VIDEOS
+// S3 / R2 â€” LIST VIDEOS
 // =========================================
 app.get("/videos", async (_req, res) => {
   try {
@@ -317,5 +317,5 @@ app.get("/videos", async (_req, res) => {
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor corriendo → http://localhost:${PORT}`);
+  console.log(`ðŸš€ Servidor corriendo â†’ http://localhost:${PORT}`);
 });
