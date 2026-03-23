@@ -1,0 +1,108 @@
+/* --------------------------
+   ESTILO GLOBAL ARK ASCENDED
+   -------------------------- */
+
+body {
+    margin: 0;
+    font-family: "Segoe UI", sans-serif;
+    background: radial-gradient(circle at top, #0a1826, #030b12 70%);
+    color: #e0faff;
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* --------------------------
+   SIDEBAR
+   -------------------------- */
+
+.sidebar {
+    width: 260px;
+    background: rgba(8, 25, 41, 0.85);
+    backdrop-filter: blur(10px);
+    border-right: 2px solid rgba(0, 255, 255, 0.35);
+    box-shadow: 0 0 25px rgba(0, 255, 255, 0.15);
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+}
+
+.sidebar-header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.ark-logo {
+    width: 90px;
+    filter: drop-shadow(0 0 10px cyan);
+}
+
+.sidebar-header h2 {
+    margin: 10px 0 0;
+    font-size: 22px;
+    color: #00eaff;
+}
+
+.sidebar-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.menu-btn,
+#logout-btn {
+    background: linear-gradient(135deg, #0a2e40, #0f1f30);
+    border: 1px solid #00c6d4;
+    padding: 12px;
+    border-radius: 10px;
+    color: #dffaff;
+    font-weight: bold;
+    cursor: pointer;
+    text-align: left;
+    transition: 0.2s ease;
+}
+
+.menu-btn:hover,
+#logout-btn:hover {
+    background: rgba(0, 255, 255, 0.15);
+    transform: scale(1.05);
+    border-color: #33f0ff;
+}
+
+#logout-btn {
+    margin-top: 30px;
+    color: #ff6e6e;
+}
+
+/* --------------------------
+   CONTENIDO PRINCIPAL
+   -------------------------- */
+
+.content {
+    flex: 1;
+    padding: 25px;
+    overflow-y: auto;
+}
+
+.welcome {
+    font-size: 38px;
+    text-shadow: 0 0 15px cyan;
+}
+
+.welcome-sub {
+    font-size: 20px;
+    opacity: 0.8;
+}
+
+/* --------------------------
+   SECCIONES DINÁMICAS
+   -------------------------- */
+
+.section {
+    padding: 20px;
+    background: rgba(8, 20, 32, 0.7);
+    border-radius: 12px;
+    border: 1px solid rgba(0, 255, 255, 0.25);
+    box-shadow: 0 0 25px rgba(0, 255, 255, 0.1);
+}

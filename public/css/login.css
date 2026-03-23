@@ -1,0 +1,73 @@
+body {
+    margin: 0;
+    font-family: "Segoe UI", sans-serif;
+    background: radial-gradient(circle at top, #08131d, #02070d 80%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    color: #e2faff;
+}
+
+.login-container {
+    width: 360px;
+    padding: 30px;
+    background: rgba(8, 25, 41, 0.75);
+    backdrop-filter: blur(14px);
+    border: 2px solid rgba(0,255,255,0.25);
+    border-radius: 18px;
+    text-align: center;
+    box-shadow: 0 0 35px rgba(0,255,255,0.15);
+}
+
+.logo {
+    width: 90px;
+    margin-bottom: 10px;
+    filter: drop-shadow(0 0 10px cyan);
+}
+
+.title {
+    font-size: 24px;
+    color: #00eaff;
+    margin-bottom: 25px;
+}
+
+.input {
+    width: 90%;
+    padding: 12px;
+    margin-top: 12px;
+    border: none;
+    border-radius: 10px;
+    outline: none;
+    background: rgba(0,0,0,0.35);
+    color: cyan;
+    font-size: 15px;
+}
+
+.btn {
+    width: 95%;
+    padding: 12px;
+    margin-top: 18px;
+    border-radius: 10px;
+    border: 1px solid #00c6d4;
+    background: linear-gradient(135deg, #0a2e40, #0f1f30);
+    color: #caffff;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.25s ease;
+}
+
+.btn:hover {
+    transform: scale(1.05);
+    background: rgba(0,255,255,0.18);
+}
+
+.msg {
+    font-size: 14px;
+    margin-top: 10px;
+}
+
+.subtitle {
+    margin-bottom: 10px;
+    opacity: 0.85;
+}
