@@ -1,5 +1,5 @@
 // ===========================================================
-// ARK DASHBOARD – CONTROLADOR PRINCIPAL (VERSIÓN FINAL CON SUBMENÚ)
+// ARK DASHBOARD – CONTROLADOR PRINCIPAL (VERSIÓN FINAL SUBMENÚ)
 // ===========================================================
 
 const API_BASE = "https://jovanfinal.onrender.com";
@@ -28,39 +28,45 @@ const submenuTitle = document.getElementById("submenu-title");
 const submenuPDF = document.getElementById("submenu-pdf");
 const submenuVideo = document.getElementById("submenu-video");
 
-// Rutas explicativas (PDF + Video)
+let submenuActive = false;
+
+// ------------ Rutas locales PDF + Videos ------------
 const info = {
     youtube: {
-        title: "YouTube - Tutorial",
-        pdf: "https://YOUR-PDF-LINK/youtube.pdf",
-        video: "https://youtu.be/YOUR_VIDEO"
+        title: "YouTube - Ayuda",
+        pdf: "tutoriales/pdf/youtube.pdf",
+        video: "tutoriales/videos/youtube.mp4"
     },
     maps: {
-        title: "Google Maps - Tutorial",
-        pdf: "https://YOUR-PDF-LINK/maps.pdf",
-        video: "https://youtu.be/YOUR_VIDEO"
+        title: "Google Maps - Ayuda",
+        pdf: "tutoriales/pdf/maps.pdf",
+        video: "tutoriales/videos/maps.mp4"
     },
     videos: {
-        title: "Videos R2 - Tutorial",
-        pdf: "https://YOUR-PDF-LINK/videos.pdf",
-        video: "https://youtu.be/YOUR_VIDEO"
+        title: "Videos R2 - Ayuda",
+        pdf: "tutoriales/pdf/videos.pdf",
+        video: "tutoriales/videos/videos.mp4"
     },
     ia: {
-        title: "IA Dinosaurios - Tutorial",
-        pdf: "https://YOUR-PDF-LINK/ia.pdf",
-        video: "https://youtu.be/YOUR_VIDEO"
+        title: "IA Dinosaurios - Ayuda",
+        pdf: "tutoriales/pdf/ia.pdf",
+        video: "tutoriales/videos/ia.mp4"
     },
     map3d: {
-        title: "Mapbox 3D - Tutorial",
-        pdf: "https://YOUR-PDF-LINK/map3d.pdf",
-        video: "https://youtu.be/YOUR_VIDEO"
+        title: "Mapbox 3D - Ayuda",
+        pdf: "tutoriales/pdf/map3d.pdf",
+        video: "tutoriales/videos/map3d.mp4"
     },
     pagos: {
-        title: "Stripe Pagos - Tutorial",
-        pdf: "https://YOUR-PDF-LINK/pagos.pdf",
-        video: "https://youtu.be/YOUR_VIDEO"
+        title: "Donaciones Stripe - Ayuda",
+        pdf: "tutoriales/pdf/pagos.pdf",
+        video: "tutoriales/videos/pagos.mp4"
     }
 };
+
+// =====================
+//  SUBMENÚ – EVENTOS
+// =====================
 
 // Mostrar submenú al pasar el mouse
 menuButtons.forEach(btn => {
@@ -74,18 +80,42 @@ menuButtons.forEach(btn => {
         submenuPDF.href = data.pdf;
         submenuVideo.href = data.video;
 
-        submenu.classList.remove("hidden");
         submenu.classList.add("visible");
+        submenu.classList.remove("hidden");
+
+        submenuActive = true;
     });
 
-    // Abrir sección al hacer click
     btn.addEventListener("click", () => loadSection(section));
 });
 
-// Ocultar submenú al salir del sidebar
+// Mantener submenú activo al pasar el mouse sobre él
+submenu.addEventListener("mouseenter", () => {
+    submenuActive = true;
+    submenu.classList.add("visible");
+    submenu.classList.remove("hidden");
+});
+
+// Esconder submenú solo si ya NO estamos sobre sidebar ni submenú
+function closeSubmenuIfNeeded() {
+    setTimeout(() => {
+        if (!submenuActive) {
+            submenu.classList.remove("visible");
+            submenu.classList.add("hidden");
+        }
+    }, 80);
+}
+
+// Evento: salimos del sidebar
 document.querySelector(".sidebar").addEventListener("mouseleave", () => {
-    submenu.classList.remove("visible");
-    submenu.classList.add("hidden");
+    submenuActive = false;
+    closeSubmenuIfNeeded();
+});
+
+// Evento: salimos del submenú
+submenu.addEventListener("mouseleave", () => {
+    submenuActive = false;
+    closeSubmenuIfNeeded();
 });
 
 // =====================
@@ -94,7 +124,9 @@ document.querySelector(".sidebar").addEventListener("mouseleave", () => {
 function loadSection(section) {
     switch (section) {
 
+        // =======================
         // YOUTUBE
+        // =======================
         case "youtube":
             content.innerHTML = `
                 <div class="section">
@@ -105,7 +137,9 @@ function loadSection(section) {
             document.getElementById("yt-load").addEventListener("click", loadYouTube);
             break;
 
+        // =======================
         // GOOGLE MAPS
+        // =======================
         case "maps":
             content.innerHTML = `
                 <div class="section">
@@ -117,14 +151,16 @@ function loadSection(section) {
             initMapSection();
             break;
 
+        // =======================
         // VIDEOS R2
+        // =======================
         case "videos":
             content.innerHTML = `
                 <div class="section">
                     <h2>🎥 Videos R2</h2>
 
                     <form id="uploadForm">
-                        <input type="file" id="video" accept="video/mp4,video/webm,video/ogg">
+                        <input type="file" id="video" accept="video/*">
                         <button type="submit" class="btn">Subir Video</button>
                     </form>
 
@@ -139,7 +175,9 @@ function loadSection(section) {
             initVideosSection();
             break;
 
+        // =======================
         // IA
+        // =======================
         case "ia":
             content.innerHTML = `
                 <div class="section">
@@ -151,7 +189,9 @@ function loadSection(section) {
             initIA();
             break;
 
+        // =======================
         // MAPBOX 3D
+        // =======================
         case "map3d":
             content.innerHTML = `
                 <div class="section">
@@ -162,7 +202,9 @@ function loadSection(section) {
             initMap3D();
             break;
 
+        // =======================
         // PAGOS STRIPE
+        // =======================
         case "pagos":
             content.innerHTML = `
                 <div class="section">
@@ -176,7 +218,7 @@ function loadSection(section) {
 }
 
 // ===================================================================
-// MÓDULOS
+// MÓDULOS (YouTube, IA, Mapbox…)
 // ===================================================================
 
 // YOUTUBE
@@ -195,7 +237,7 @@ async function loadYouTube() {
 
             box.innerHTML += `
                 <div class="yt-card">
-                    <iframe src="https://www.youtube.com/embed/${item.id.videoId}" allowfullscreen></iframe>
+                    https://www.youtube.com/embed/${item.id.videoId}
                     <p>${item.snippet.title}</p>
                 </div>`;
         });
@@ -207,11 +249,6 @@ async function loadYouTube() {
 
 // GOOGLE MAPS
 function initMapSection() {
-    if (typeof google === "undefined") {
-        alert("Falta cargar Google Maps en el HTML.");
-        return;
-    }
-
     const map = new google.maps.Map(document.getElementById("map"), {
         zoom: 14,
         center: { lat: 19.4326, lng: -99.1332 }
@@ -255,7 +292,7 @@ function initIA() {
     });
 }
 
-// VIDEOS R2
+// VIDEOS
 function initVideosSection() {
     const token = localStorage.getItem("token");
 
@@ -282,7 +319,7 @@ function initVideosSection() {
             card.className = "video-card";
 
             card.innerHTML = `
-                <video src="${v.url}" muted></video>
+                ${v.url}</video>
                 <p>${v.key.split("/").pop()}</p>
             `;
 
@@ -320,11 +357,6 @@ function initVideosSection() {
 async function initMap3D() {
     const res = await fetch(`${API_BASE}/config/mapbox`);
     const { mapboxToken } = await res.json();
-
-    if (typeof mapboxgl === "undefined") {
-        alert("Falta cargar el script de Mapbox en el HTML.");
-        return;
-    }
 
     mapboxgl.accessToken = mapboxToken;
 
