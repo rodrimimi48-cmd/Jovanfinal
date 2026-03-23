@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>ARK Login</title>
+    <link rel="stylesheet" href="css/login.css">
+</head>
+<body>
+
+    <div class="login-container">
+
+        <h2 class="title">Acceso ARK</h2>
+
+        <!-- PRIMER PASO: EMAIL + PASSWORD -->
+        <div id="step1">
+            <input type="email" id="email" placeholder="Correo electrónico" class="input">
+            <input type="password" id="password" placeholder="Contraseña" class="input">
+            <button id="login-btn" class="btn">Iniciar sesión</button>
+            <p id="login-msg" class="msg"></p>
+        </div>
+
+        <!-- SEGUNDO PASO: CÓDIGO 2FA -->
+        <div id="step2" style="display:none;">
+            <p class="subtitle">Ingresa el código enviado a tu correo:</p>
+            <input type="text" id="code" placeholder="Código de 6 dígitos" class="input">
+            <button id="verify-btn" class="btn">Verificar código</button>
+            <p id="code-msg" class="msg"></p>
+        </div>
+
+    </div>
+
+    <script src="script_login.js"></script>
+
+</body>
+</html>
