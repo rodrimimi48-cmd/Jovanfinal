@@ -1,5 +1,5 @@
 // ======================
-// server.js — ARK Backend (JSON Database)
+// server.js — ARK Backend (JSON Database) + CORS FIX
 // ======================
 
 require("dotenv").config();
@@ -34,7 +34,28 @@ const stripe = process.env.STRIPE_SECRET_KEY ? Stripe(process.env.STRIPE_SECRET_
 // App
 const app = express();
 app.use(express.json());
-app.use(cors({ origin: "*", methods: ["GET", "POST"] }));
+
+// =========================================================
+// CORS CONFIG (FINAL & CORRECTO PARA GITHUB PAGES)
+// =========================================================
+app.use(cors({
+  origin: [
+    "https://rodrimimi48-cmd.github.io",
+    "https://rodrimimi48-cmd.github.io/Jovanfinal",
+    "https://rodrimimi48-cmd.github.io/Jovanfinal/"
+  ],
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true
+}));
+
+app.options("*", cors());
+
+// Acrescentamos cabecera extra para Render + GitHub Pages
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Credentials", "true");
+  next();
+});
 
 // =========================================================
 // ROOT — API ALIVE
@@ -71,7 +92,6 @@ app.post("/register", async (req, res) => {
 // =========================================================
 const codes = new Map();
 
-// Paso 1 — LOGIN
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
@@ -82,17 +102,13 @@ app.post("/login", async (req, res) => {
   if (!ok) return res.status(400).json({ error: "Contraseña incorrecta" });
 
   const code = Math.floor(100000 + Math.random() * 900000).toString();
-
   codes.set(email, { code, expires: Date.now() + 5 * 60 * 1000 });
 
-  sendVerificationCode(email, code).catch(() => {
-    console.log("Código 2FA:", code);
-  });
+  sendVerificationCode(email, code).catch(() => console.log("Código 2FA:", code));
 
   return res.json({ step: "2FA" });
 });
 
-// Paso 2 — Verificar código
 app.post("/verify-2fa", (req, res) => {
   const { email, code } = req.body;
 
@@ -100,11 +116,8 @@ app.post("/verify-2fa", (req, res) => {
 
   const data = codes.get(email);
 
-  if (Date.now() > data.expires)
-    return res.status(400).json({ error: "Código expirado" });
-
-  if (data.code !== code)
-    return res.status(400).json({ error: "Código incorrecto" });
+  if (Date.now() > data.expires) return res.status(400).json({ error: "Código expirado" });
+  if (data.code !== code) return res.status(400).json({ error: "Código incorrecto" });
 
   codes.delete(email);
 
@@ -118,8 +131,7 @@ app.post("/verify-2fa", (req, res) => {
 // =========================================================
 function auth(req, res, next) {
   const header = req.headers.authorization;
-  if (!header)
-    return res.status(401).json({ error: "Token requerido" });
+  if (!header) return res.status(401).json({ error: "Token requerido" });
 
   const token = header.split(" ")[1];
 
@@ -132,7 +144,7 @@ function auth(req, res, next) {
 }
 
 // =========================================================
-// IA
+// IA (HuggingFace)
 // =========================================================
 app.post("/chat", async (req, res) => {
   try {
@@ -214,7 +226,6 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-// SUBIR VIDEO
 app.post("/upload", auth, upload.single("video"), async (req, res) => {
   const temp = req.file.path;
 
