@@ -4,16 +4,16 @@
     <meta charset="UTF-8">
     <title>Dashboard ARK</title>
 
-    <!-- 🔵 CSS DEL DASHBOARD -->
+    <!-- CSS DEL DASHBOARD -->
     <link rel="stylesheet" href="css/dashboard.css">
 
-    <!-- 🔵 MAPBOX CSS -->
+    <!-- MAPBOX CSS -->
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.css" rel="stylesheet">
 
-    <!-- 🔵 GOOGLE MAPS API -->
+    <!-- GOOGLE MAPS API -->
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAFOwFuxoNRk3NDmSTeui88vUY1nCnLTFI&libraries=places"></script>
 
-    <!-- 🔵 MAPBOX JS -->
+    <!-- MAPBOX JS -->
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.js"></script>
 </head>
 
@@ -33,13 +33,20 @@
         <button id="logout-btn" class="menu-btn logout">Cerrar sesión</button>
     </aside>
 
+    <!-- SUBMENÚ DESPLEGABLE -->
+    <div id="submenu" class="submenu hidden">
+        <h3 id="submenu-title"></h3>
+        <a id="submenu-pdf" class="submenu-item" target="_blank">📄 PDF explicativo</a>
+        <a id="submenu-video" class="submenu-item" target="_blank">🎥 Video explicativo</a>
+    </div>
+
     <!-- CONTENIDO -->
     <main id="content">
         <h1>Bienvenido al panel ARK 🦕</h1>
         <p>Selecciona una opción del menú.</p>
     </main>
 
-    <!-- 🔵 SCRIPT DEL DASHBOARD -->
+    <!-- SCRIPT DEL DASHBOARD -->
     <script src="script_dashboard.js"></script>
 
 </body>

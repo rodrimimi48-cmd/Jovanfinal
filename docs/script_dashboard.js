@@ -1,5 +1,5 @@
 // ===========================================================
-// ARK DASHBOARD – CONTROLADOR PRINCIPAL (VERSIÓN FINAL)
+// ARK DASHBOARD – CONTROLADOR PRINCIPAL (VERSIÓN FINAL CON SUBMENÚ)
 // ===========================================================
 
 const API_BASE = "https://jovanfinal.onrender.com";
@@ -20,16 +20,72 @@ const content = document.getElementById("content");
 const menuButtons = document.querySelectorAll(".menu-btn");
 const logoutBtn = document.getElementById("logout-btn");
 
+// =====================
+//  SUBMENÚ DESPLEGABLE
+// =====================
+const submenu = document.getElementById("submenu");
+const submenuTitle = document.getElementById("submenu-title");
+const submenuPDF = document.getElementById("submenu-pdf");
+const submenuVideo = document.getElementById("submenu-video");
+
+// Rutas explicativas (PDF + Video)
+const info = {
+    youtube: {
+        title: "YouTube - Tutorial",
+        pdf: "https://YOUR-PDF-LINK/youtube.pdf",
+        video: "https://youtu.be/YOUR_VIDEO"
+    },
+    maps: {
+        title: "Google Maps - Tutorial",
+        pdf: "https://YOUR-PDF-LINK/maps.pdf",
+        video: "https://youtu.be/YOUR_VIDEO"
+    },
+    videos: {
+        title: "Videos R2 - Tutorial",
+        pdf: "https://YOUR-PDF-LINK/videos.pdf",
+        video: "https://youtu.be/YOUR_VIDEO"
+    },
+    ia: {
+        title: "IA Dinosaurios - Tutorial",
+        pdf: "https://YOUR-PDF-LINK/ia.pdf",
+        video: "https://youtu.be/YOUR_VIDEO"
+    },
+    map3d: {
+        title: "Mapbox 3D - Tutorial",
+        pdf: "https://YOUR-PDF-LINK/map3d.pdf",
+        video: "https://youtu.be/YOUR_VIDEO"
+    },
+    pagos: {
+        title: "Stripe Pagos - Tutorial",
+        pdf: "https://YOUR-PDF-LINK/pagos.pdf",
+        video: "https://youtu.be/YOUR_VIDEO"
+    }
+};
+
+// Mostrar submenú al pasar el mouse
 menuButtons.forEach(btn => {
-    btn.addEventListener("click", () => {
-        const section = btn.dataset.section;
-        loadSection(section);
+    const section = btn.dataset.section;
+
+    btn.addEventListener("mouseenter", () => {
+        const data = info[section];
+        if (!data) return;
+
+        submenuTitle.textContent = data.title;
+        submenuPDF.href = data.pdf;
+        submenuVideo.href = data.video;
+
+        submenu.classList.remove("hidden");
+        submenu.classList.add("visible");
     });
+
+    // Abrir sección al hacer click
+    btn.addEventListener("click", () => loadSection(section));
 });
 
-logoutBtn.addEventListener("click", () => {
-    localStorage.removeItem("token");
-    window.location.href = "login.html";
+// Ocultar submenú al salir del sidebar
+document.querySelector(".sidebar").addEventListener("mouseleave", () => {
+    submenu.classList.remove("visible");
+    submenu.classList.add("hidden");
 });
 
 // =====================
@@ -120,7 +176,7 @@ function loadSection(section) {
 }
 
 // ===================================================================
-// 🔥 A PARTIR DE AQUÍ TODAS LAS FUNCIONES DE CADA MÓDULO 🔥
+// MÓDULOS
 // ===================================================================
 
 // YOUTUBE
@@ -156,8 +212,7 @@ function initMapSection() {
         return;
     }
 
-    let map;
-    map = new google.maps.Map(document.getElementById("map"), {
+    const map = new google.maps.Map(document.getElementById("map"), {
         zoom: 14,
         center: { lat: 19.4326, lng: -99.1332 }
     });
@@ -200,7 +255,7 @@ function initIA() {
     });
 }
 
-// VIDEOS
+// VIDEOS R2
 function initVideosSection() {
     const token = localStorage.getItem("token");
 
@@ -213,8 +268,13 @@ function initVideosSection() {
         const res = await fetch(`${API_BASE}/videos`, {
             headers: { Authorization: "Bearer " + token }
         });
-        const data = await res.json();
 
+        if (!res.ok) {
+            grid.innerHTML = `<p>Error al cargar videos</p>`;
+            return;
+        }
+
+        const data = await res.json();
         grid.innerHTML = "";
 
         data.videos.forEach(v => {
@@ -280,22 +340,20 @@ async function initMap3D() {
 
 // STRIPE
 function initPayments() {
-    document.getElementById("pay-btn")
-        .addEventListener("click", async () => {
-
-            const email = document.getElementById("buyerEmail").value;
-            const res = await fetch(`${API_BASE}/crear-pago`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    buyerEmail: email,
-                    items: [
-                        { name: "Donación ARK", qty: 1, price: 12 }
-                    ]
-                })
-            });
-
-            const data = await res.json();
-            window.location.href = data.url;
+    document.getElementById("pay-btn").addEventListener("click", async () => {
+        const email = document.getElementById("buyerEmail").value;
+        const res = await fetch(`${API_BASE}/crear-pago`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                buyerEmail: email,
+                items: [
+                    { name: "Donación ARK", qty: 1, price: 12 }
+                ]
+            })
         });
+
+        const data = await res.json();
+        window.location.href = data.url;
+    });
 }

@@ -254,3 +254,49 @@ input[type="email"] {
     border-radius: 6px;
     border: 1px solid rgba(56, 189, 248, 0.2);
 }
+/* ===============================
+   SUBMENÚ LATERAL DESPLEGABLE
+=============================== */
+.submenu {
+    position: absolute;
+    left: 260px;
+    top: 80px;
+    width: 260px;
+    background: rgba(10, 15, 35, 0.8);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 15px rgba(14,165,233,0.3);
+    transition: opacity .3s ease, transform .3s ease;
+    opacity: 0;
+    transform: translateX(-10px);
+    z-index: 999;
+}
+
+.submenu.visible {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.submenu.hidden {
+    display: none;
+}
+
+.submenu-item {
+    display: block;
+    margin-top: 12px;
+    padding: 12px;
+    background: rgba(30,41,59,.6);
+    border-radius: 6px;
+    color: #7dd3fc;
+    text-decoration: none;
+    border: 1px solid rgba(56,189,248,.2);
+    transition: 0.25s;
+}
+
+.submenu-item:hover {
+    background: rgba(14,165,233,.5);
+    color: white;
+    box-shadow: 0 0 12px #0ea5e9;
+}
