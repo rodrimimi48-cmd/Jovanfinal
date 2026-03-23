@@ -1,5 +1,5 @@
 // ===========================================================
-// ARK DASHBOARD – CONTROLADOR PRINCIPAL (VERSIÓN FINAL SUBMENÚ)
+// ARK DASHBOARD – CONTROLADOR PRINCIPAL (VERSION PRO COMPLETA)
 // ===========================================================
 
 const API_BASE = "https://jovanfinal.onrender.com";
@@ -21,7 +21,7 @@ const menuButtons = document.querySelectorAll(".menu-btn");
 const logoutBtn = document.getElementById("logout-btn");
 
 // =====================
-//  SUBMENÚ DESPLEGABLE
+//  SUBMENÚ DESPLEGABLE ARK PRO
 // =====================
 const submenu = document.getElementById("submenu");
 const submenuTitle = document.getElementById("submenu-title");
@@ -30,7 +30,9 @@ const submenuVideo = document.getElementById("submenu-video");
 
 let submenuActive = false;
 
-// ------------ Rutas locales PDF + Videos ------------
+// =====================
+//  RUTAS LOCALES (PDF + VIDEO)
+// =====================
 const info = {
     youtube: {
         title: "YouTube - Ayuda",
@@ -65,10 +67,10 @@ const info = {
 };
 
 // =====================
-//  SUBMENÚ – EVENTOS
+//  SUBMENÚ: MOSTRAR Y MANTENER
 // =====================
 
-// Mostrar submenú al pasar el mouse
+// Hover en botones → abrir submenú
 menuButtons.forEach(btn => {
     const section = btn.dataset.section;
 
@@ -80,8 +82,8 @@ menuButtons.forEach(btn => {
         submenuPDF.href = data.pdf;
         submenuVideo.href = data.video;
 
-        submenu.classList.add("visible");
         submenu.classList.remove("hidden");
+        submenu.classList.add("visible");
 
         submenuActive = true;
     });
@@ -89,30 +91,26 @@ menuButtons.forEach(btn => {
     btn.addEventListener("click", () => loadSection(section));
 });
 
-// Mantener submenú activo al pasar el mouse sobre él
+// Hover en submenú → mantenerlo abierto
 submenu.addEventListener("mouseenter", () => {
     submenuActive = true;
     submenu.classList.add("visible");
-    submenu.classList.remove("hidden");
 });
 
-// Esconder submenú solo si ya NO estamos sobre sidebar ni submenú
+// Salir del área completa → cerrar submenú
 function closeSubmenuIfNeeded() {
     setTimeout(() => {
         if (!submenuActive) {
             submenu.classList.remove("visible");
-            submenu.classList.add("hidden");
         }
-    }, 80);
+    }, 120);
 }
 
-// Evento: salimos del sidebar
 document.querySelector(".sidebar").addEventListener("mouseleave", () => {
     submenuActive = false;
     closeSubmenuIfNeeded();
 });
 
-// Evento: salimos del submenú
 submenu.addEventListener("mouseleave", () => {
     submenuActive = false;
     closeSubmenuIfNeeded();
@@ -152,8 +150,8 @@ function loadSection(section) {
             break;
 
         // =======================
-        // VIDEOS R2
-        // =======================
+        // VIDEOS R2 (PRO VISUAL)
+// =======================
         case "videos":
             content.innerHTML = `
                 <div class="section">
@@ -203,7 +201,7 @@ function loadSection(section) {
             break;
 
         // =======================
-        // PAGOS STRIPE
+        // PAGOS
         // =======================
         case "pagos":
             content.innerHTML = `
@@ -218,10 +216,90 @@ function loadSection(section) {
 }
 
 // ===================================================================
-// MÓDULOS (YouTube, IA, Mapbox…)
+// 🎥 MÓDULO DE VIDEOS — ESTILO YOUTUBE PRO
 // ===================================================================
+function initVideosSection() {
+    const token = localStorage.getItem("token");
 
+    const form = document.getElementById("uploadForm");
+    const grid = document.getElementById("videos-grid");
+    const player = document.getElementById("main-video");
+    const status = document.getElementById("upload-status");
+
+    async function loadVideos() {
+        const res = await fetch(`${API_BASE}/videos`, {
+            headers: { Authorization: "Bearer " + token }
+        });
+
+        if (!res.ok) {
+            grid.innerHTML = `<p>Error al cargar videos</p>`;
+            return;
+        }
+
+        const data = await res.json();
+
+        grid.innerHTML = "";
+
+        data.videos.forEach(v => {
+            const card = document.createElement("div");
+            card.className = "video-card";
+
+            card.innerHTML = `
+                <div class="video-thumb-container">
+                    <video class="video-thumb" src="${v.url}" muted preload="metadata"></video>
+                </div>
+                <p class="video-title">${v.key.split("/").pop()}</p>
+            `;
+
+            const thumb = card.querySelector(".video-thumb");
+
+            // 🔥 HOVER: reproducir como YouTube
+            card.addEventListener("mouseenter", () => {
+                thumb.currentTime = 0;
+                thumb.play();
+            });
+
+            // 🔥 SALIR: pausar y reiniciar
+            card.addEventListener("mouseleave", () => {
+                thumb.pause();
+                thumb.currentTime = 0;
+            });
+
+            // 🔥 CLICK: cargar en reproductor grande
+            card.addEventListener("click", () => {
+                player.src = v.url;
+                player.play();
+            });
+
+            grid.appendChild(card);
+        });
+    }
+
+    // Upload video
+    form.onsubmit = async e => {
+        e.preventDefault();
+        const file = document.getElementById("video").files[0];
+        status.textContent = "Subiendo…";
+
+        const fd = new FormData();
+        fd.append("video", file);
+
+        await fetch(`${API_BASE}/upload`, {
+            method: "POST",
+            headers: { Authorization: "Bearer " + token },
+            body: fd
+        });
+
+        status.textContent = "✔ Subido";
+        loadVideos();
+    };
+
+    loadVideos();
+}
+
+// ===================================================================
 // YOUTUBE
+// ===================================================================
 async function loadYouTube() {
     const box = document.getElementById("yt-results");
     box.innerHTML = "<p>Cargando…</p>";
@@ -247,7 +325,9 @@ async function loadYouTube() {
     }
 }
 
+// ===================================================================
 // GOOGLE MAPS
+// ===================================================================
 function initMapSection() {
     const map = new google.maps.Map(document.getElementById("map"), {
         zoom: 14,
@@ -273,13 +353,15 @@ function initMapSection() {
     });
 }
 
+// ===================================================================
 // IA
+// ===================================================================
 function initIA() {
     document.getElementById("ia-btn").addEventListener("click", async () => {
         const q = document.getElementById("ia-question").value;
         const out = document.getElementById("ia-answer");
 
-        out.innerHTML = "Procesando…";
+        out.textContent = "Procesando…";
 
         const res = await fetch(`${API_BASE}/chat`, {
             method: "POST",
@@ -288,79 +370,20 @@ function initIA() {
         });
 
         const data = await res.json();
-        out.innerHTML = data.respuesta;
+        out.textContent = data.respuesta;
     });
 }
 
-// VIDEOS
-function initVideosSection() {
-    const token = localStorage.getItem("token");
-
-    const form = document.getElementById("uploadForm");
-    const grid = document.getElementById("videos-grid");
-    const player = document.getElementById("main-video");
-    const status = document.getElementById("upload-status");
-
-    async function loadVideos() {
-        const res = await fetch(`${API_BASE}/videos`, {
-            headers: { Authorization: "Bearer " + token }
-        });
-
-        if (!res.ok) {
-            grid.innerHTML = `<p>Error al cargar videos</p>`;
-            return;
-        }
-
-        const data = await res.json();
-        grid.innerHTML = "";
-
-        data.videos.forEach(v => {
-            const card = document.createElement("div");
-            card.className = "video-card";
-
-            card.innerHTML = `
-                ${v.url}</video>
-                <p>${v.key.split("/").pop()}</p>
-            `;
-
-            card.onclick = () => {
-                player.src = v.url;
-                player.play();
-            };
-
-            grid.appendChild(card);
-        });
-    }
-
-    form.onsubmit = async e => {
-        e.preventDefault();
-        const file = document.getElementById("video").files[0];
-        status.innerHTML = "Subiendo…";
-
-        const fd = new FormData();
-        fd.append("video", file);
-
-        await fetch(`${API_BASE}/upload`, {
-            method: "POST",
-            headers: { Authorization: "Bearer " + token },
-            body: fd
-        });
-
-        status.innerHTML = "✔ Subido";
-        loadVideos();
-    };
-
-    loadVideos();
-}
-
+// ===================================================================
 // MAPBOX 3D
+// ===================================================================
 async function initMap3D() {
     const res = await fetch(`${API_BASE}/config/mapbox`);
     const { mapboxToken } = await res.json();
 
     mapboxgl.accessToken = mapboxToken;
 
-    const map = new mapboxgl.Map({
+    new mapboxgl.Map({
         container: "map3d",
         style: "mapbox://styles/mapbox/streets-v12",
         center: [-99.1332, 19.4326],
@@ -370,10 +393,13 @@ async function initMap3D() {
     });
 }
 
+// ===================================================================
 // STRIPE
+// ===================================================================
 function initPayments() {
     document.getElementById("pay-btn").addEventListener("click", async () => {
         const email = document.getElementById("buyerEmail").value;
+
         const res = await fetch(`${API_BASE}/crear-pago`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
