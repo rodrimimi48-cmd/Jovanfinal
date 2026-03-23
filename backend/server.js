@@ -1,5 +1,5 @@
 // ======================
-// server.js — ARK Backend (JSON Database) + CORS FIX
+// server.js — ARK Backend (JSON Database) + CORS FIX FINAL
 // ======================
 
 require("dotenv").config();
@@ -33,10 +33,9 @@ const stripe = process.env.STRIPE_SECRET_KEY ? Stripe(process.env.STRIPE_SECRET_
 
 // App
 const app = express();
-app.use(express.json());
 
 // =========================================================
-// CORS CONFIG (FINAL & CORRECTO PARA GITHUB PAGES)
+// CORS — ESTE BLOQUE SIEMPRE DEBE ESTAR ARRIBA DE TODO
 // =========================================================
 app.use(cors({
   origin: [
@@ -51,11 +50,16 @@ app.use(cors({
 
 app.options("*", cors());
 
-// Acrescentamos cabecera extra para Render + GitHub Pages
+// Header adicional requerido por GitHub Pages + Render
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
   next();
 });
+
+// =========================================================
+// EXPRESS JSON (DEBE IR DESPUÉS DEL CORS)
+// =========================================================
+app.use(express.json());
 
 // =========================================================
 // ROOT — API ALIVE
@@ -144,7 +148,7 @@ function auth(req, res, next) {
 }
 
 // =========================================================
-// IA (HuggingFace)
+// IA
 // =========================================================
 app.post("/chat", async (req, res) => {
   try {
@@ -247,7 +251,6 @@ app.post("/upload", auth, upload.single("video"), async (req, res) => {
   }
 });
 
-// LISTAR VIDEOS
 app.get("/videos", auth, async (req, res) => {
   try {
     const list = await s3.send(
