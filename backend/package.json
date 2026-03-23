@@ -25,6 +25,7 @@
     "@huggingface/inference": "^4.13.12",
     "@sendgrid/mail": "^8.1.6",
     "axios": "^1.13.6",
+    "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.8.0",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
