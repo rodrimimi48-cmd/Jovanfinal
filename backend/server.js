@@ -29,13 +29,15 @@ const { v4: uuidv4 } = require("uuid");
 
 // Stripe
 const Stripe = require("stripe");
-const stripe = process.env.STRIPE_SECRET_KEY ? Stripe(process.env.STRIPE_SECRET_KEY) : null;
+const stripe = process.env.STRIPE_SECRET_KEY
+  ? Stripe(process.env.STRIPE_SECRET_KEY)
+  : null;
 
 // App
 const app = express();
 
 // =========================================================
-// CORS — ESTE BLOQUE SIEMPRE DEBE ESTAR ARRIBA DE TODO
+// CORS — ESTE BLOQUE SIEMPRE DEBE IR ARRIBA
 // =========================================================
 app.use(cors({
   origin: [
@@ -50,14 +52,13 @@ app.use(cors({
 
 app.options("*", cors());
 
-// Header adicional requerido por GitHub Pages + Render
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Credentials", "true");
   next();
 });
 
 // =========================================================
-// EXPRESS JSON (DEBE IR DESPUÉS DEL CORS)
+// EXPRESS JSON
 // =========================================================
 app.use(express.json());
 
@@ -120,12 +121,17 @@ app.post("/verify-2fa", (req, res) => {
 
   const data = codes.get(email);
 
-  if (Date.now() > data.expires) return res.status(400).json({ error: "Código expirado" });
-  if (data.code !== code) return res.status(400).json({ error: "Código incorrecto" });
+  if (Date.now() > data.expires)
+    return res.status(400).json({ error: "Código expirado" });
+
+  if (data.code !== code)
+    return res.status(400).json({ error: "Código incorrecto" });
 
   codes.delete(email);
 
-  const token = jwt.sign({ email }, process.env.JWT_SECRET, { expiresIn: "2h" });
+  const token = jwt.sign({ email }, process.env.JWT_SECRET, {
+    expiresIn: "2h"
+  });
 
   return res.json({ success: true, token });
 });
@@ -135,7 +141,8 @@ app.post("/verify-2fa", (req, res) => {
 // =========================================================
 function auth(req, res, next) {
   const header = req.headers.authorization;
-  if (!header) return res.status(401).json({ error: "Token requerido" });
+  if (!header)
+    return res.status(401).json({ error: "Token requerido" });
 
   const token = header.split(" ")[1];
 
@@ -148,7 +155,7 @@ function auth(req, res, next) {
 }
 
 // =========================================================
-// IA
+// IA (HuggingFace)
 // =========================================================
 app.post("/chat", async (req, res) => {
   try {
@@ -175,7 +182,7 @@ app.post("/chat", async (req, res) => {
     );
 
     res.json({ respuesta: resp.data.choices[0].message.content });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: "IA error" });
   }
 });
@@ -194,17 +201,54 @@ app.get("/config/mapbox", (req, res) => {
 // =========================================================
 app.get("/youtube", async (req, res) => {
   try {
-    const r = await axios.get("https://www.googleapis.com/youtube/v3/search", {
-      params: {
-        part: "snippet",
-        q: "Animales prehistoricos documentales",
-        type: "video",
-        maxResults: 6,
-        key: process.env.YOUTUBE_API_KEY
+    const r = await axios.get(
+      "https://www.googleapis.com/youtube/v3/search",
+      {
+        params: {
+          part: "snippet",
+          q: "Animales prehistoricos documentales",
+          type: "video",
+          maxResults: 6,
+          key: process.env.YOUTUBE_API_KEY
+        }
       }
-    });
+    );
 
     res.json(r.data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// =========================================================
+// STRIPE CHECKOUT (NUEVO)
+// =========================================================
+app.post("/crear-pago", async (req, res) => {
+  if (!stripe) return res.status(500).json({ error: "Stripe no configurado" });
+
+  try {
+    const { buyerEmail, items } = req.body;
+
+    const lineItems = items.map(i => ({
+      price_data: {
+        currency: "mxn",
+        product_data: { name: i.name },
+        unit_amount: i.price * 100
+      },
+      quantity: i.qty
+    }));
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      mode: "payment",
+      customer_email: buyerEmail,
+      line_items: lineItems,
+      success_url: "https://rodrimimi48-cmd.github.io/Jovanfinal/docs/dashboard.html?status=success",
+      cancel_url: "https://rodrimimi48-cmd.github.io/Jovanfinal/docs/dashboard.html?status=cancel"
+    });
+
+    res.json({ url: session.url });
+
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -235,6 +279,7 @@ app.post("/upload", auth, upload.single("video"), async (req, res) => {
 
   try {
     const key = `videos/${req.file.filename}`;
+
     await s3.send(
       new PutObjectCommand({
         Bucket: process.env.S3_BUCKET,
@@ -245,12 +290,14 @@ app.post("/upload", auth, upload.single("video"), async (req, res) => {
 
     fs.unlinkSync(temp);
     res.json({ ok: true, key });
+
   } catch (err) {
     if (fs.existsSync(temp)) fs.unlinkSync(temp);
     res.status(500).json({ error: err.message });
   }
 });
 
+// LISTAR VIDEOS
 app.get("/videos", auth, async (req, res) => {
   try {
     const list = await s3.send(
@@ -277,10 +324,12 @@ app.get("/videos", auth, async (req, res) => {
     );
 
     res.json({ videos: result });
+
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 // =========================================================
 // PUERTO

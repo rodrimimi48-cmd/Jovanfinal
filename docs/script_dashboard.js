@@ -1,23 +1,21 @@
 // ===========================================================
-// ARK DASHBOARD – CONTROLADOR PRINCIPAL
+// ARK DASHBOARD – CONTROLADOR PRINCIPAL (VERSIÓN FINAL)
 // ===========================================================
 
 const API_BASE = "https://jovanfinal.onrender.com";
 
-// -----------------------------
-//  PROTECCIÓN DE SESIÓN (JWT)
-// -----------------------------
+// =====================
+//  PROTECCIÓN DE SESIÓN
+// =====================
 function checkAuth() {
     const token = localStorage.getItem("token");
-    if (!token) {
-        window.location.href = "login.html";
-    }
+    if (!token) window.location.href = "login.html";
 }
 checkAuth();
 
-// -----------------------------
-//  MANEJO DE MENÚ LATERAL
-// -----------------------------
+// =====================
+//  MENÚ LATERAL
+// =====================
 const content = document.getElementById("content");
 const menuButtons = document.querySelectorAll(".menu-btn");
 const logoutBtn = document.getElementById("logout-btn");
@@ -34,46 +32,36 @@ logoutBtn.addEventListener("click", () => {
     window.location.href = "login.html";
 });
 
-// -----------------------------
-//  CARGA DINÁMICA DE SECCIONES
-// -----------------------------
+// =====================
+//  CARGA DE SECCIONES
+// =====================
 function loadSection(section) {
     switch (section) {
 
-        // ================================
-        //   SECCIÓN REDES SOCIALES
-        // ================================
+        // YOUTUBE
         case "youtube":
             content.innerHTML = `
                 <div class="section">
                     <h2>📺 Videos de YouTube</h2>
                     <button id="yt-load" class="btn">Cargar Videos</button>
                     <div id="yt-results" class="yt-grid"></div>
-                </div>
-            `;
+                </div>`;
             document.getElementById("yt-load").addEventListener("click", loadYouTube);
             break;
 
-
-        // ================================
-        //   SECCIÓN MAPA
-        // ================================
+        // GOOGLE MAPS
         case "maps":
             content.innerHTML = `
                 <div class="section">
                     <h2>🗺️ Google Maps</h2>
-                    <input type="text" id="map-search" placeholder="Buscar lugar..." class="search-bar">
+                    <input type="text" id="map-search" placeholder="Buscar..." class="search-bar">
                     <button id="map-btn" class="btn">Buscar</button>
                     <div id="map" class="map-box"></div>
-                </div>
-            `;
+                </div>`;
             initMapSection();
             break;
 
-
-        // ================================
-        //   VIDEOS R2 – STREAMING
-        // ================================
+        // VIDEOS R2
         case "videos":
             content.innerHTML = `
                 <div class="section">
@@ -91,69 +79,51 @@ function loadSection(section) {
 
                     <h3>🎬 Reproductor</h3>
                     <video id="main-video" controls class="main-video"></video>
-                </div>
-            `;
+                </div>`;
             initVideosSection();
             break;
 
-
-        // ================================
-        //   IA DINOSAURIOS
-        // ================================
+        // IA
         case "ia":
             content.innerHTML = `
                 <div class="section">
-                    <h2>🦖 IA sobre Dinosaurios</h2>
-                    <input type="text" id="ia-question" class="search-bar" placeholder="Pregunta sobre dinosaurios...">
+                    <h2>🦖 IA Dinosaurios</h2>
+                    <input type="text" id="ia-question" class="search-bar" placeholder="Pregunta algo...">
                     <button id="ia-btn" class="btn">Preguntar</button>
                     <p id="ia-answer" class="ia-answer"></p>
-                </div>
-            `;
+                </div>`;
             initIA();
             break;
 
-
-        // ================================
-        //   MAPBOX 3D – MODO CAMINAR
-        // ================================
+        // MAPBOX 3D
         case "map3d":
             content.innerHTML = `
                 <div class="section">
                     <h2>🌋 Exploración 3D</h2>
-                    <p>Mueve tu cámara con W A S D – Shift – Q/E – Mouse</p>
+                    <p>Usa W A S D, SHIFT, Q/E y el mouse.</p>
                     <div id="map3d" class="map3d-box"></div>
-                </div>
-            `;
+                </div>`;
             initMap3D();
             break;
 
-
-        // ================================
-        //   DONACIONES (STRIPE)
-        // ================================
+        // PAGOS STRIPE
         case "pagos":
             content.innerHTML = `
                 <div class="section">
                     <h2>💳 Donaciones</h2>
                     <input id="buyerEmail" type="email" placeholder="Tu correo" class="search-bar">
                     <button id="pay-btn" class="btn">Donar $12 MXN</button>
-                </div>
-            `;
+                </div>`;
             initPayments();
             break;
     }
 }
 
-//
 // ===================================================================
-//     A PARTIR DE AQUÍ, SOLO LAS PLANTILLAS (Funciones vacías)
-//     En la Siguiente SECCIÓN yo agregaré toda la lógica de tus APIs
+// 🔥 A PARTIR DE AQUÍ TODAS LAS FUNCIONES DE CADA MÓDULO 🔥
 // ===================================================================
-//
 
-// -----------------------------
-//  YOUTUBE
-// -----------------------------
+// YOUTUBE
 async function loadYouTube() {
     const box = document.getElementById("yt-results");
     box.innerHTML = "<p>Cargando…</p>";
@@ -162,23 +132,16 @@ async function loadYouTube() {
         const res = await fetch(`${API_BASE}/youtube`);
         const data = await res.json();
 
-        if (!res.ok) throw new Error(data.error || "Error YouTube");
-
         box.innerHTML = "";
 
         data.items.forEach(item => {
             if (item.id?.kind !== "youtube#video") return;
 
-            const vid = item.id.videoId;
-            const title = item.snippet?.title || "Video";
-
             box.innerHTML += `
                 <div class="yt-card">
-                    <iframe src="https://www.youtube.com/embed/${vid}"
-                        allowfullscreen></iframe>
-                    <p>${title}</p>
-                </div>
-            `;
+                    <iframe src="https://www.youtube.com/embed/${item.id.videoId}" allowfullscreen></iframe>
+                    <p>${item.snippet.title}</p>
+                </div>`;
         });
 
     } catch (err) {
@@ -186,14 +149,15 @@ async function loadYouTube() {
     }
 }
 
-// -----------------------------
-//  GOOGLE MAPS + LUPA
-// -----------------------------
+// GOOGLE MAPS
 function initMapSection() {
-    let map;
-    const mapBox = document.getElementById("map");
+    if (typeof google === "undefined") {
+        alert("Falta cargar Google Maps en el HTML.");
+        return;
+    }
 
-    map = new google.maps.Map(mapBox, {
+    let map;
+    map = new google.maps.Map(document.getElementById("map"), {
         zoom: 14,
         center: { lat: 19.4326, lng: -99.1332 }
     });
@@ -202,7 +166,6 @@ function initMapSection() {
 
     document.getElementById("map-btn").addEventListener("click", () => {
         const place = document.getElementById("map-search").value;
-        if (!place) return alert("Escribe un lugar.");
 
         geocoder.geocode({ address: place }, (results, status) => {
             if (status === "OK") {
@@ -218,115 +181,90 @@ function initMapSection() {
     });
 }
 
-// -----------------------------
-//  IA
-// -----------------------------
+// IA
 function initIA() {
-    const btn = document.getElementById("ia-btn");
-    const input = document.getElementById("ia-question");
-    const out = document.getElementById("ia-answer");
-
-    btn.addEventListener("click", async () => {
-        if (!input.value) return;
+    document.getElementById("ia-btn").addEventListener("click", async () => {
+        const q = document.getElementById("ia-question").value;
+        const out = document.getElementById("ia-answer");
 
         out.innerHTML = "Procesando…";
 
-        try {
-            const res = await fetch(`${API_BASE}/chat`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ pregunta: input.value })
-            });
+        const res = await fetch(`${API_BASE}/chat`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pregunta: q })
+        });
 
-            const data = await res.json();
-            out.innerHTML = data.respuesta || "Sin respuesta";
-
-        } catch (err) {
-            out.innerHTML = "Error: " + err.message;
-        }
+        const data = await res.json();
+        out.innerHTML = data.respuesta;
     });
 }
 
-// -----------------------------
-//  Videos R2
-// -----------------------------
+// VIDEOS
 function initVideosSection() {
     const token = localStorage.getItem("token");
+
     const form = document.getElementById("uploadForm");
     const grid = document.getElementById("videos-grid");
-    const mainVideo = document.getElementById("main-video");
+    const player = document.getElementById("main-video");
     const status = document.getElementById("upload-status");
 
     async function loadVideos() {
-        grid.innerHTML = "Cargando…";
-        try {
-            const res = await fetch(`${API_BASE}/videos`, {
-                headers: { Authorization: "Bearer " + token }
-            });
-            const data = await res.json();
+        const res = await fetch(`${API_BASE}/videos`, {
+            headers: { Authorization: "Bearer " + token }
+        });
+        const data = await res.json();
 
-            if (!res.ok) throw new Error(data.error);
+        grid.innerHTML = "";
 
-            grid.innerHTML = "";
+        data.videos.forEach(v => {
+            const card = document.createElement("div");
+            card.className = "video-card";
 
-            data.videos.forEach(v => {
-                const card = document.createElement("div");
-                card.className = "video-card";
+            card.innerHTML = `
+                <video src="${v.url}" muted></video>
+                <p>${v.key.split("/").pop()}</p>
+            `;
 
-                card.innerHTML = `
-                    <video src="${v.url}" muted></video>
-                    <p>${v.key.split("/").pop()}</p>
-                `;
+            card.onclick = () => {
+                player.src = v.url;
+                player.play();
+            };
 
-                card.addEventListener("click", () => {
-                    mainVideo.src = v.url;
-                    mainVideo.play();
-                });
-
-                grid.appendChild(card);
-            });
-
-        } catch (err) {
-            grid.innerHTML = `<p>Error: ${err.message}</p>`;
-        }
+            grid.appendChild(card);
+        });
     }
 
-    form.addEventListener("submit", async e => {
+    form.onsubmit = async e => {
         e.preventDefault();
         const file = document.getElementById("video").files[0];
-        if (!file) return;
-
         status.innerHTML = "Subiendo…";
 
         const fd = new FormData();
         fd.append("video", file);
 
-        try {
-            const res = await fetch(`${API_BASE}/upload`, {
-                method: "POST",
-                headers: { Authorization: "Bearer " + token },
-                body: fd
-            });
+        await fetch(`${API_BASE}/upload`, {
+            method: "POST",
+            headers: { Authorization: "Bearer " + token },
+            body: fd
+        });
 
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error);
-
-            status.innerHTML = "✔ Subido";
-            loadVideos();
-
-        } catch (err) {
-            status.innerHTML = "Error: " + err.message;
-        }
-    });
+        status.innerHTML = "✔ Subido";
+        loadVideos();
+    };
 
     loadVideos();
 }
-// -----------------------------
-//  MAPBOX 3D
-// -----------------------------
+
+// MAPBOX 3D
 async function initMap3D() {
     const res = await fetch(`${API_BASE}/config/mapbox`);
     const { mapboxToken } = await res.json();
+
+    if (typeof mapboxgl === "undefined") {
+        alert("Falta cargar el script de Mapbox en el HTML.");
+        return;
+    }
 
     mapboxgl.accessToken = mapboxToken;
 
@@ -336,38 +274,16 @@ async function initMap3D() {
         center: [-99.1332, 19.4326],
         zoom: 16,
         pitch: 60,
-        bearing: 40,
-        antialias: true
-    });
-
-    map.on("load", () => {
-        map.addSource("mapbox-dem", {
-            type: "raster-dem",
-            url: "mapbox://mapbox.mapbox-terrain-dem-v1",
-            tileSize: 512
-        });
-
-        map.setTerrain({ source: "mapbox-dem", exaggeration: 1.3 });
-
-        // Modo caminar (tu código original completo)
-        // → NO lo copio aquí por mensaje, pero puedo incluirlo completo si lo deseas EXACTO.
-        // Para mantener limpio este mensaje, lo sugerido es:
-        // Copiar y pegar tu bloque original de movement-camera aquí.
+        bearing: 40
     });
 }
 
-// -----------------------------
-//  PAGOS (Stripe)
-// -----------------------------
+// STRIPE
 function initPayments() {
-    const btn = document.getElementById("pay-btn");
+    document.getElementById("pay-btn")
+        .addEventListener("click", async () => {
 
-    btn.addEventListener("click", async () => {
-        const email = document.getElementById("buyerEmail").value;
-
-        if (!email) return alert("Escribe tu correo.");
-
-        try {
+            const email = document.getElementById("buyerEmail").value;
             const res = await fetch(`${API_BASE}/crear-pago`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -381,9 +297,5 @@ function initPayments() {
 
             const data = await res.json();
             window.location.href = data.url;
-
-        } catch (err) {
-            alert("Error: " + err.message);
-        }
-    });
+        });
 }

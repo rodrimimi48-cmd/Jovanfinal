@@ -3,31 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <title>Dashboard ARK</title>
-    <link rel="stylesheet" href="css/dashboard.css">
+
+    <!-- CSS PRINCIPAL -->
+    css/dashboard.css
+
+    <!-- MAPBOX CSS -->
+    https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.css
+
+    <!-- GOOGLE MAPS API -->
+    https://maps.googleapis.com/maps/api/js?key=AIzaSyAFOwFuxoNRk3NDmSTeui88vUY1nCnLTFI&libraries=places</script>
+
+    <!-- MAPBOX JS -->
+    https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.js</script>
 </head>
 
 <body>
 
-    <!-- SIDEBAR -->
+    <!-- MENU -->
     <aside class="sidebar">
         <h2 class="title">ARK Panel</h2>
 
         <button class="menu-btn" data-section="youtube">📺 YouTube</button>
         <button class="menu-btn" data-section="maps">🗺️ Google Maps</button>
-        <button class="menu-btn" data-section="videos">🎥 Videos R2</button>
-        <button class="menu-btn" data-section="ia">🦖 IA Dinosaurios</button>
+        <button class="menu-btn" data-section="videos">🎥 Videos</button>
+        <button class="menu-btn" data-section="ia">🦖 IA</button>
         <button class="menu-btn" data-section="map3d">🌋 Mapbox 3D</button>
         <button class="menu-btn" data-section="pagos">💳 Donaciones</button>
 
         <button id="logout-btn" class="menu-btn logout">Cerrar sesión</button>
     </aside>
 
-    <!-- CONTENIDO PRINCIPAL -->
+    <!-- CONTENIDO -->
     <main id="content">
-        <h1>Bienvenido al panel ARK </h1>
-        <p>Selecciona una opción del menú para comenzar.</p>
+        <h1>Bienvenido al panel ARK 🦕</h1>
+        <p>Selecciona una opción del menú.</p>
     </main>
 
-    <script src="script_dashboard.js"></script>
+    <!-- SCRIPT DEL DASHBOARD -->
+    script_dashboard.js</script>
+
 </body>
 </html>
