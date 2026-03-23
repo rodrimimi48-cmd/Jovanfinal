@@ -50,6 +50,7 @@ async function sendReceiptEmail({ session, lineItems }) {
   const amount = ((session?.amount_total || 0) / 100).toFixed(2);
   const currency = (session?.currency || "mxn").toUpperCase();
 
+  // HTML limpio (SIN entidades escapadas)
   const itemsHtml = (lineItems || [])
     .map(i => `
       <li>${i.quantity || 1} × ${i.description || "Artículo"} — 
@@ -58,19 +59,28 @@ async function sendReceiptEmail({ session, lineItems }) {
     .join("");
 
   const html = `
-    <h2>Gracias por tu compra</h2>
+    <h2>🎟️ Gracias por tu compra</h2>
+
     <p>Tu pago fue procesado correctamente.</p>
     <p><b>Total cobrado (Stripe):</b> ${amount} ${currency}</p>
-    <h3>Detalles:</h3>
+
+    <h3>🛒 Detalles:</h3>
     <ul>${itemsHtml}</ul>
+
     <p><b>Folio Stripe:</b> ${session?.id}</p>
-    <p>Adjuntamos tu ticket en PDF con desglose de IVA.</p>
+
+    <p>Adjuntamos tu ticket en PDF con el desglose de IVA (${asPercent(
+      ivaRate
+    )}).</p>
+
+    <br>
+    <p>Gracias por comprar en <b>ARK System</b>.</p>
   `;
 
   const text =
     [
       "Gracias por tu compra",
-      `Total cobrado (Stripe): ${amount} ${currency}`,
+      `Total cobrado: ${amount} ${currency}`,
       "Detalles:",
       ...(lineItems || []).map(
         i =>
@@ -78,8 +88,8 @@ async function sendReceiptEmail({ session, lineItems }) {
             (i.amount_total || 0) / 100
           } ${currency}`
       ),
-      `Folio Stripe: ${session?.id}`,
-      `IVA aplicado en PDF: ${asPercent(ivaRate)}`
+      `Folio: ${session?.id}`,
+      `IVA aplicado: ${asPercent(ivaRate)}`
     ].join("\n");
 
   const attachments = [];
@@ -121,14 +131,16 @@ async function sendVerificationCode(email, code) {
   const html = `
     <h2>🔐 Tu código de verificación ARK</h2>
     <p>Este es tu código para verificar tu identidad:</p>
-    <h1>${code}</h1>
+    <h1 style="font-size: 32px; color: #0ea5e9;">${code}</h1>
     <p>Es válido por <strong>10 minutos</strong>.</p>
     <p>Si no solicitaste este código, ignora este mensaje.</p>
   `;
 
-  const text = `Tu código de verificación ARK es: ${code}
-Este código expirará en 10 minutos.
-Si no solicitaste este código, ignora este mensaje.`;
+  const text = `
+  Tu código de verificación ARK es: ${code}
+  Este código expirará en 10 minutos.
+  Si no solicitaste este código, ignora este mensaje.
+  `;
 
   try {
     await sg.send({
