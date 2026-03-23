@@ -300,3 +300,135 @@ input[type="email"] {
     color: white;
     box-shadow: 0 0 12px #0ea5e9;
 }
+/* ===============================
+   SUBMENÚ DESLIZANTE (SLIDE-IN)
+=============================== */
+.submenu {
+    position: absolute;
+    left: 260px;
+    top: 80px;
+    width: 260px;
+    background: rgba(10, 15, 35, 0.8);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 20px rgba(14,165,233,0.35);
+    z-index: 999;
+
+    /* ANIMACIÓN */
+    opacity: 0;
+    transform: translateX(-20px);
+    transition: transform .3s cubic-bezier(0.18, 0.89, 0.32, 1.28),
+                opacity .25s ease-in-out;
+}
+
+.submenu.visible {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.submenu.hidden {
+    display: none;
+}
+/* ============================================================
+   ARK PRO - SUBMENÚ DESLIZANTE + EFECTOS FUTURISTAS
+============================================================ */
+
+/* Contenedor del submenú */
+.submenu {
+    position: absolute;
+    left: 260px;
+    top: 80px;
+    width: 300px;
+
+    background: rgba(10, 20, 35, 0.75);
+    backdrop-filter: blur(12px) saturate(140%);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+
+    padding: 20px 25px;
+    border-radius: 12px;
+
+    box-shadow: 0 0 25px rgba(14, 165, 233, 0.45),
+                inset 0 0 30px rgba(14, 165, 233, 0.15);
+
+    z-index: 999;
+
+    /* ANIMACIÓN DESLIZANTE + FADE */
+    opacity: 0;
+    transform: translateX(-35px) scale(0.96);
+    transition: 
+        opacity .35s ease-out,
+        transform .35s cubic-bezier(0.18, 0.89, 0.32, 1.28),
+        box-shadow .3s ease;
+}
+
+.submenu.visible {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+}
+
+/* Oculto */
+.submenu.hidden {
+    display: none;
+}
+
+/* Línea luminosa animada */
+.submenu::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 3px;
+    width: 0%;
+    background: linear-gradient(90deg, #00eaff, #0078ff);
+    box-shadow: 0 0 12px #00eaff;
+    animation: arkLine 2.2s infinite ease-in-out;
+}
+
+@keyframes arkLine {
+    0% { width: 0%; left: 0; }
+    50% { width: 100%; left: 0; }
+    100% { width: 0%; left: 100%; }
+}
+
+/* Título */
+#submenu-title {
+    color: #7dd3fc;
+    font-size: 22px;
+    font-weight: bold;
+    text-shadow: 0 0 12px #0ea5e9;
+    margin-bottom: 12px;
+}
+
+/* Botones del submenú */
+.submenu-item {
+    display: block;
+    margin-top: 14px;
+    padding: 12px 14px;
+    background: rgba(40, 60, 80, 0.55);
+    border-radius: 8px;
+    color: #cceaff;
+    text-decoration: none;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+
+    transition: 
+        background .25s ease,
+        transform .25s ease,
+        box-shadow .25s ease;
+}
+
+.submenu-item:hover {
+    background: rgba(14, 165, 233, .35);
+    color: white;
+    transform: translateX(6px);
+    box-shadow: 0 0 15px #38bdf8;
+}
+
+/* ICONOS DEL MENU */
+.icon {
+    display: inline-block;
+    width: 24px;
+    margin-right: 8px;
+    text-shadow: 0 0 6px #38bdf8;
+}
