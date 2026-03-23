@@ -1,5 +1,5 @@
 // ======================
-// server.js — ARK Backend (JSON Database) + ADMIN AUTO + CORS FINAL
+// server.js — ARK Backend (JSON Database) + ADMIN + STRIPE WEBHOOK + CORS FINAL
 // ======================
 
 require("dotenv").config();
@@ -29,12 +29,52 @@ const { v4: uuidv4 } = require("uuid");
 
 // Stripe
 const Stripe = require("stripe");
-const stripe = process.env.STRIPE_SECRET_KEY
-  ? Stripe(process.env.STRIPE_SECRET_KEY)
-  : null;
+const stripe = process.env.STRIPE_SECRET_KEY ? Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
 // App
 const app = express();
+
+// =========================================================
+// STRIPE WEBHOOK RAW BODY (DEBE IR ANTES DE JSON)
+// =========================================================
+app.post(
+  "/webhook-stripe",
+  express.raw({ type: "application/json" }),
+  async (req, res) => {
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    let event;
+
+    try {
+      event = stripe.webhooks.constructEvent(
+        req.body,
+        req.headers["stripe-signature"],
+        webhookSecret
+      );
+    } catch (err) {
+      console.error("⚠ ERROR WEBHOOK:", err.message);
+      return res.status(400).send(`Webhook error: ${err.message}`);
+    }
+
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object;
+
+      try {
+        const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
+
+        await sendReceiptEmail({
+          session,
+          lineItems: lineItems.data
+        });
+
+        console.log("📧 Ticket PDF enviado correctamente.");
+      } catch (err) {
+        console.error("❌ Error enviando PDF: ", err);
+      }
+    }
+
+    res.json({ received: true });
+  }
+);
 
 // =========================================================
 // CORS GLOBAL
@@ -58,19 +98,18 @@ app.use((req, res, next) => {
 });
 
 // =========================================================
-// EXPRESS JSON
+// EXPRESS JSON (DEBE IR DESPUÉS DEL WEBHOOK)
 // =========================================================
 app.use(express.json());
 
 // =========================================================
-// AUTO-CREAR ADMIN
+// AUTO‑ADMIN
 // =========================================================
 (async () => {
   const adminEmail = "rodrimimi48@gmail.com";
   const adminPass = "Titipigmeo211403";
 
   const exists = db.getUser(adminEmail);
-
   if (!exists) {
     const hash = await bcrypt.hash(adminPass, 10);
 
@@ -133,8 +172,7 @@ app.post("/login", async (req, res) => {
   const code = Math.floor(100000 + Math.random() * 900000).toString();
   codes.set(email, { code, expires: Date.now() + 5 * 60 * 1000 });
 
-  sendVerificationCode(email, code)
-    .catch(() => console.log("Código 2FA:", code));
+  sendVerificationCode(email, code).catch(() => console.log("Código 2FA:", code));
 
   res.json({ step: "2FA" });
 });
@@ -142,8 +180,7 @@ app.post("/login", async (req, res) => {
 app.post("/verify-2fa", (req, res) => {
   const { email, code } = req.body;
 
-  if (!codes.has(email))
-    return res.status(400).json({ error: "Código no solicitado" });
+  if (!codes.has(email)) return res.status(400).json({ error: "Código no solicitado" });
 
   const data = codes.get(email);
 
@@ -155,15 +192,13 @@ app.post("/verify-2fa", (req, res) => {
 
   codes.delete(email);
 
-  const token = jwt.sign({ email }, process.env.JWT_SECRET, {
-    expiresIn: "2h"
-  });
+  const token = jwt.sign({ email }, process.env.JWT_SECRET, { expiresIn: "2h" });
 
   res.json({ success: true, token });
 });
 
 // =========================================================
-// JWT Middleware
+// AUTH (JWT)
 // =========================================================
 function auth(req, res, next) {
   const h = req.headers.authorization;
@@ -212,11 +247,12 @@ app.post("/chat", async (req, res) => {
 });
 
 // =========================================================
-// MAPBOX
+// MAPBOX TOKEN
 // =========================================================
 app.get("/config/mapbox", (req, res) => {
   const token = process.env.MAPBOX_PUBLIC_TOKEN;
   if (!token) return res.status(500).json({ error: "Falta MAPBOX_PUBLIC_TOKEN" });
+
   res.json({ mapboxToken: token });
 });
 
@@ -251,7 +287,7 @@ app.post("/crear-pago", async (req, res) => {
   try {
     const { buyerEmail, items } = req.body;
 
-    const lineItems = items.map(i => ({
+    const lineItems = items.map((i) => ({
       price_data: {
         currency: "mxn",
         product_data: { name: i.name },
@@ -265,8 +301,10 @@ app.post("/crear-pago", async (req, res) => {
       mode: "payment",
       customer_email: buyerEmail,
       line_items: lineItems,
-      success_url: "https://rodrimimi48-cmd.github.io/Jovanfinal/docs/dashboard.html?status=success",
-      cancel_url: "https://rodrimimi48-cmd.github.io/Jovanfinal/docs/dashboard.html?status=cancel"
+      success_url:
+        "https://rodrimimi48-cmd.github.io/Jovanfinal/docs/dashboard.html?status=success",
+      cancel_url:
+        "https://rodrimimi48-cmd.github.io/Jovanfinal/docs/dashboard.html?status=cancel"
     });
 
     res.json({ url: session.url });
@@ -291,7 +329,8 @@ const s3 = new S3Client({
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, os.tmpdir()),
-  filename: (_req, file, cb) => cb(null, uuidv4() + path.extname(file.originalname))
+  filename: (_req, file, cb) =>
+    cb(null, uuidv4() + path.extname(file.originalname))
 });
 
 const upload = multer({ storage });
@@ -332,13 +371,16 @@ app.get("/videos", auth, async (req, res) => {
     );
 
     const result = await Promise.all(
-      (list.Contents || []).map(async obj => ({
+      (list.Contents || []).map(async (obj) => ({
         key: obj.Key,
         size: obj.Size,
         lastModified: obj.LastModified,
         url: await getSignedUrl(
           s3,
-          new GetObjectCommand({ Bucket: process.env.S3_BUCKET, Key: obj.Key }),
+          new GetObjectCommand({
+            Bucket: process.env.S3_BUCKET,
+            Key: obj.Key
+          }),
           { expiresIn: 3600 }
         )
       }))
