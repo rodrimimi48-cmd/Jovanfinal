@@ -10,10 +10,21 @@ const axios = require("axios");
 const fs = require("fs");
 const os = require("os");
 const multer = require("multer");
-const db = require("./db");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
+// SQLite (better-sqlite3)
+const Database = require("better-sqlite3");
+const db = new Database(path.join(__dirname, "database.db"));
+
+// Ejecutar init.sql
+const initSQL = fs.readFileSync(path.join(__dirname, "init.sql"), "utf8");
+db.exec(initSQL);
+
+// Mailer
+const { sendReceiptEmail, sendVerificationCode } = require("./mailer");
+
+// AWS S3 / Cloudflare R2
 const {
   S3Client,
   PutObjectCommand,
@@ -29,13 +40,7 @@ const stripe = process.env.STRIPE_SECRET_KEY
   ? Stripe(process.env.STRIPE_SECRET_KEY)
   : null;
 
-// Inicializar base de datos usando init.sql
-const initSQL = fs.readFileSync(path.join(__dirname, "init.sql"), "utf8");
-db.exec(initSQL);
-
-// Mailer
-const { sendReceiptEmail, sendVerificationCode } = require("./mailer");
-
+// Inicializar servidor
 const app = express();
 app.set("trust proxy", 1);
 
@@ -47,7 +52,7 @@ app.use(
 );
 
 // =========================================================
-// ⚠️ STRIPE WEBHOOK — DEBE IR ANTES DE express.json()
+// ⚠️ STRIPE WEBHOOK — ANTES DE express.json()
 // =========================================================
 app.post(
   "/stripe-webhook",
@@ -66,7 +71,6 @@ app.post(
           process.env.STRIPE_WEBHOOK_SECRET
         );
       } catch (err) {
-        console.error("Error webhook:", err);
         return res.status(400).send(`Webhook Error: ${err.message}`);
       }
 
@@ -84,90 +88,81 @@ app.post(
             lineItems: lineItems.data
           });
         } catch (e) {
-          console.error("Error enviando ticket:", e);
+          console.error("Error PDF:", e);
         }
       }
 
       res.json({ received: true });
     } catch (e) {
-      console.error("Webhook error:", e);
       res.status(200).end();
     }
   }
 );
 
 // =========================================================
-// express.json DESPUÉS DEL WEBHOOK
+// JSON NORMAL
 // =========================================================
 app.use(express.json());
 
 // =========================================================
-// ARCHIVOS ESTÁTICOS
-// (Render NO servirá frontend desde aquí, pero lo dejamos)
-// =========================================================
-app.use(express.static(path.join(__dirname)));
-
-// =========================================================
-// LOGIN + REGISTER + 2FA + JWT
+// RUTAS LOGIN + REGISTER + 2FA + JWT
 // =========================================================
 
-// Registrar usuario (solo una vez)
+// Registrar usuario
 app.post("/register", async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password)
     return res.status(400).json({ error: "Faltan campos" });
 
-  const hash = await bcrypt.hash(password, 10);
-
-  db.run(
-    "INSERT INTO users(email, password_hash) VALUES (?, ?)",
-    [email, hash],
-    (err) => {
-      if (err) {
-        return res.status(400).json({ error: "El usuario ya existe" });
-      }
-      return res.json({ success: true });
-    }
-  );
+  try {
+    const hash = await bcrypt.hash(password, 10);
+    db.prepare("INSERT INTO users (email, password_hash) VALUES (?, ?)").run(
+      email,
+      hash
+    );
+    return res.json({ success: true });
+  } catch {
+    return res.status(400).json({ error: "El usuario ya existe" });
+  }
 });
 
-// Mapa temporal para códigos 2FA
+// Mapa temporal 2FA
 const codes = new Map();
 
 // LOGIN — Paso 1
 app.post("/login", (req, res) => {
   const { email, password } = req.body;
 
-  db.get("SELECT * FROM users WHERE email = ?", [email], async (err, row) => {
-    if (err || !row) {
+  try {
+    const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
+
+    if (!user)
       return res.status(400).json({ error: "Usuario no encontrado" });
-    }
 
-    const ok = await bcrypt.compare(password, row.password_hash);
-    if (!ok) {
-      return res.status(400).json({ error: "Contraseña incorrecta" });
-    }
+    bcrypt.compare(password, user.password_hash).then((ok) => {
+      if (!ok)
+        return res.status(400).json({ error: "Contraseña incorrecta" });
 
-    // Generar código 2FA
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
 
-    codes.set(email, {
-      code,
-      expires: Date.now() + 5 * 60 * 1000
+      codes.set(email, {
+        code,
+        expires: Date.now() + 5 * 60 * 1000
+      });
+
+      sendVerificationCode(email, code).catch(() => {
+        console.log("Código 2FA:", code);
+      });
+
+      return res.json({ step: "2FA" });
     });
-
-    try {
-      await sendVerificationCode(email, code);
-    } catch (e) {
-      console.log("Código 2FA:", code);
-    }
-
-    return res.json({ step: "2FA" });
-  });
+  } catch (err) {
+    res.status(500).json({ error: "Error interno" });
+  }
 });
 
-// LOGIN — Paso 2 (Verificar código)
+// LOGIN — Paso 2
 app.post("/verify-2fa", (req, res) => {
   const { email, code } = req.body;
 
@@ -184,19 +179,16 @@ app.post("/verify-2fa", (req, res) => {
 
   codes.delete(email);
 
-  const token = jwt.sign(
-    { email },
-    process.env.JWT_SECRET,
-    { expiresIn: "2h" }
-  );
+  const token = jwt.sign({ email }, process.env.JWT_SECRET, {
+    expiresIn: "2h"
+  });
 
   return res.json({ success: true, token });
 });
 
-// Middleware JWT
+// Middleware auth
 function auth(req, res, next) {
   const header = req.headers.authorization;
-
   if (!header)
     return res.status(401).json({ error: "Token requerido" });
 
@@ -212,7 +204,7 @@ function auth(req, res, next) {
 }
 
 // =========================================================
-// IA (DINOSAURIOS)
+// IA DINOSAURIOS
 // =========================================================
 app.post("/chat", async (req, res) => {
   try {
@@ -226,7 +218,7 @@ app.post("/chat", async (req, res) => {
       {
         model: "meta-llama/Llama-3.2-1B-Instruct",
         messages: [
-          { role: "system", content: "Eres un paleontólogo experto. Solo hablas de dinosaurios." },
+          { role: "system", content: "Eres un paleontólogo experto." },
           { role: "user", content: pregunta }
         ],
         max_tokens: 250,
@@ -240,25 +232,18 @@ app.post("/chat", async (req, res) => {
       }
     );
 
-    const respuesta =
-      resp.data?.choices?.[0]?.message?.content?.trim() ||
-      "No pude generar respuesta.";
-
-    res.json({ respuesta });
-  } catch (error) {
-    console.error("🔥 ERROR IA:", error.response?.data || error.message);
-    res.status(500).json({ error: "Error interno al procesar IA" });
+    res.json({ respuesta: resp.data?.choices?.[0]?.message?.content || "" });
+  } catch {
+    res.status(500).json({ error: "Error interno IA" });
   }
 });
 
 // =========================================================
-// MAPBOX
+// MAPBOX TOKEN
 // =========================================================
 app.get("/config/mapbox", (_req, res) => {
   const token = process.env.MAPBOX_PUBLIC_TOKEN || "";
-  if (!token) {
-    return res.status(500).json({ mapboxToken: "", error: "Falta MAPBOX_PUBLIC_TOKEN" });
-  }
+  if (!token) return res.status(500).json({ error: "Falta MAPBOX_PUBLIC_TOKEN" });
   res.json({ mapboxToken: token });
 });
 
@@ -294,41 +279,34 @@ const s3 = new S3Client({
   endpoint: process.env.S3_ENDPOINT,
   forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true",
   credentials: {
-    accessKeyId: process.env.S3_ACCESS_KEY_ID || "",
-    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || ""
+    accessKeyId: process.env.S3_ACCESS_KEY_ID,
+    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY
   }
 });
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, os.tmpdir()),
   filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase() || ".bin";
+    const ext = path.extname(file.originalname) || ".mp4";
     cb(null, `${uuidv4()}${ext}`);
   }
 });
-
-const allowedVideoMimes = ["video/mp4", "video/webm", "video/ogg"];
 
 const uploadVideo = multer({
   storage,
   limits: { fileSize: 1024 * 1024 * 500 },
   fileFilter: (_req, file, cb) => {
-    if (!allowedVideoMimes.includes(file.mimetype))
+    if (!["video/mp4", "video/webm", "video/ogg"].includes(file.mimetype))
       return cb(new Error("Formato inválido"));
     cb(null, true);
   }
 });
 
+// SUBIR VIDEO (PROTEGIDO)
 app.post("/upload", auth, uploadVideo.single("video"), async (req, res) => {
   const temp = req.file?.path;
 
   try {
-    if (!process.env.S3_BUCKET)
-      return res.status(500).json({ error: "Falta S3_BUCKET" });
-
-    if (!req.file)
-      return res.status(400).json({ error: "No file" });
-
     const key = `videos/${req.file.filename}`;
 
     await s3.send(
@@ -348,14 +326,9 @@ app.post("/upload", auth, uploadVideo.single("video"), async (req, res) => {
   }
 });
 
-// =========================================================
-// LIST VIDEOS
-// =========================================================
+// LISTAR VIDEOS (PROTEGIDO)
 app.get("/videos", auth, async (_req, res) => {
   try {
-    if (!process.env.S3_BUCKET)
-      return res.status(500).json({ error: "Falta S3_BUCKET" });
-
     const list = await s3.send(
       new ListObjectsV2Command({
         Bucket: process.env.S3_BUCKET,
@@ -364,10 +337,6 @@ app.get("/videos", auth, async (_req, res) => {
     );
 
     const items = list.Contents || [];
-
-    items.sort(
-      (a, b) => new Date(b.LastModified) - new Date(a.LastModified)
-    );
 
     const result = await Promise.all(
       items
@@ -397,7 +366,6 @@ app.get("/videos", auth, async (_req, res) => {
 // PUERTO
 // =========================================================
 const PORT = process.env.PORT || 3000;
-
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor corriendo → http://localhost:${PORT}`);
+  console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
 });
