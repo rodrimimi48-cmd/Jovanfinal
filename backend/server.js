@@ -1,30 +1,23 @@
 // ======================
-// server.js — ARK Backend
+// server.js — ARK Backend (JSON Database)
 // ======================
 
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const path = require("path");
 const axios = require("axios");
 const fs = require("fs");
 const os = require("os");
+const path = require("path");
 const multer = require("multer");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-
-// SQLite (better-sqlite3)
-const Database = require("better-sqlite3");
-const db = new Database(path.join(__dirname, "database.db"));
-
-// Ejecutar init.sql
-const initSQL = fs.readFileSync(path.join(__dirname, "init.sql"), "utf8");
-db.exec(initSQL);
+const db = require("./db");
 
 // Mailer
 const { sendReceiptEmail, sendVerificationCode } = require("./mailer");
 
-// AWS S3 / Cloudflare R2
+// AWS S3 / R2
 const {
   S3Client,
   PutObjectCommand,
@@ -36,138 +29,74 @@ const { v4: uuidv4 } = require("uuid");
 
 // Stripe
 const Stripe = require("stripe");
-const stripe = process.env.STRIPE_SECRET_KEY
-  ? Stripe(process.env.STRIPE_SECRET_KEY)
-  : null;
+const stripe = process.env.STRIPE_SECRET_KEY ? Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
-// Inicializar servidor
+// App
 const app = express();
-app.set("trust proxy", 1);
-
-app.use(
-  cors({
-    origin: "*",
-    methods: ["GET", "POST", "HEAD", "OPTIONS"]
-  })
-);
-
-// =========================================================
-// ⚠️ STRIPE WEBHOOK — ANTES DE express.json()
-// =========================================================
-app.post(
-  "/stripe-webhook",
-  express.raw({ type: "application/json" }),
-  async (req, res) => {
-    try {
-      if (!stripe) return res.status(500).send("Stripe no configurado");
-
-      const sig = req.headers["stripe-signature"];
-      let event;
-
-      try {
-        event = stripe.webhooks.constructEvent(
-          req.body,
-          sig,
-          process.env.STRIPE_WEBHOOK_SECRET
-        );
-      } catch (err) {
-        return res.status(400).send(`Webhook Error: ${err.message}`);
-      }
-
-      if (event.type === "checkout.session.completed") {
-        const session = event.data.object;
-        let lineItems = { data: [] };
-
-        try {
-          lineItems = await stripe.checkout.sessions.listLineItems(session.id);
-        } catch {}
-
-        try {
-          await sendReceiptEmail({
-            session,
-            lineItems: lineItems.data
-          });
-        } catch (e) {
-          console.error("Error PDF:", e);
-        }
-      }
-
-      res.json({ received: true });
-    } catch (e) {
-      res.status(200).end();
-    }
-  }
-);
-
-// =========================================================
-// JSON NORMAL
-// =========================================================
 app.use(express.json());
+app.use(cors({ origin: "*", methods: ["GET", "POST"] }));
 
 // =========================================================
-// RUTAS LOGIN + REGISTER + 2FA + JWT
+// ROOT — API ALIVE
 // =========================================================
+app.get("/", (req, res) => {
+  res.json({ status: "ARK API ONLINE" });
+});
 
-// Registrar usuario
+// =========================================================
+// REGISTER
+// =========================================================
 app.post("/register", async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password)
     return res.status(400).json({ error: "Faltan campos" });
 
-  try {
-    const hash = await bcrypt.hash(password, 10);
-    db.prepare("INSERT INTO users (email, password_hash) VALUES (?, ?)").run(
-      email,
-      hash
-    );
-    return res.json({ success: true });
-  } catch {
+  if (db.getUser(email))
     return res.status(400).json({ error: "El usuario ya existe" });
-  }
+
+  const hash = await bcrypt.hash(password, 10);
+
+  db.addUser({
+    email,
+    password_hash: hash,
+    created_at: new Date().toISOString()
+  });
+
+  return res.json({ success: true });
 });
 
-// Mapa temporal 2FA
+// =========================================================
+// LOGIN + 2FA
+// =========================================================
 const codes = new Map();
 
-// LOGIN — Paso 1
-app.post("/login", (req, res) => {
+// Paso 1 — LOGIN
+app.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
-  try {
-    const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
+  const user = db.getUser(email);
+  if (!user) return res.status(400).json({ error: "Usuario no encontrado" });
 
-    if (!user)
-      return res.status(400).json({ error: "Usuario no encontrado" });
+  const ok = await bcrypt.compare(password, user.password_hash);
+  if (!ok) return res.status(400).json({ error: "Contraseña incorrecta" });
 
-    bcrypt.compare(password, user.password_hash).then((ok) => {
-      if (!ok)
-        return res.status(400).json({ error: "Contraseña incorrecta" });
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
 
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
+  codes.set(email, { code, expires: Date.now() + 5 * 60 * 1000 });
 
-      codes.set(email, {
-        code,
-        expires: Date.now() + 5 * 60 * 1000
-      });
+  sendVerificationCode(email, code).catch(() => {
+    console.log("Código 2FA:", code);
+  });
 
-      sendVerificationCode(email, code).catch(() => {
-        console.log("Código 2FA:", code);
-      });
-
-      return res.json({ step: "2FA" });
-    });
-  } catch (err) {
-    res.status(500).json({ error: "Error interno" });
-  }
+  return res.json({ step: "2FA" });
 });
 
-// LOGIN — Paso 2
+// Paso 2 — Verificar código
 app.post("/verify-2fa", (req, res) => {
   const { email, code } = req.body;
 
-  if (!codes.has(email))
-    return res.status(400).json({ error: "Código no solicitado" });
+  if (!codes.has(email)) return res.status(400).json({ error: "Código no solicitado" });
 
   const data = codes.get(email);
 
@@ -179,14 +108,14 @@ app.post("/verify-2fa", (req, res) => {
 
   codes.delete(email);
 
-  const token = jwt.sign({ email }, process.env.JWT_SECRET, {
-    expiresIn: "2h"
-  });
+  const token = jwt.sign({ email }, process.env.JWT_SECRET, { expiresIn: "2h" });
 
   return res.json({ success: true, token });
 });
 
-// Middleware auth
+// =========================================================
+// JWT Middleware
+// =========================================================
 function auth(req, res, next) {
   const header = req.headers.authorization;
   if (!header)
@@ -195,16 +124,15 @@ function auth(req, res, next) {
   const token = header.split(" ")[1];
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
+    req.user = jwt.verify(token, process.env.JWT_SECRET);
     next();
-  } catch (err) {
+  } catch {
     return res.status(401).json({ error: "Token inválido" });
   }
 }
 
 // =========================================================
-// IA DINOSAURIOS
+// IA
 // =========================================================
 app.post("/chat", async (req, res) => {
   try {
@@ -220,9 +148,7 @@ app.post("/chat", async (req, res) => {
         messages: [
           { role: "system", content: "Eres un paleontólogo experto." },
           { role: "user", content: pregunta }
-        ],
-        max_tokens: 250,
-        temperature: 0.5
+        ]
       },
       {
         headers: {
@@ -232,17 +158,17 @@ app.post("/chat", async (req, res) => {
       }
     );
 
-    res.json({ respuesta: resp.data?.choices?.[0]?.message?.content || "" });
-  } catch {
-    res.status(500).json({ error: "Error interno IA" });
+    res.json({ respuesta: resp.data.choices[0].message.content });
+  } catch (err) {
+    res.status(500).json({ error: "IA error" });
   }
 });
 
 // =========================================================
 // MAPBOX TOKEN
 // =========================================================
-app.get("/config/mapbox", (_req, res) => {
-  const token = process.env.MAPBOX_PUBLIC_TOKEN || "";
+app.get("/config/mapbox", (req, res) => {
+  const token = process.env.MAPBOX_PUBLIC_TOKEN;
   if (!token) return res.status(500).json({ error: "Falta MAPBOX_PUBLIC_TOKEN" });
   res.json({ mapboxToken: token });
 });
@@ -250,20 +176,17 @@ app.get("/config/mapbox", (_req, res) => {
 // =========================================================
 // YOUTUBE
 // =========================================================
-app.get("/youtube", async (_req, res) => {
+app.get("/youtube", async (req, res) => {
   try {
-    const r = await axios.get(
-      "https://www.googleapis.com/youtube/v3/search",
-      {
-        params: {
-          part: "snippet",
-          q: "Animales prehistóricos documentales",
-          type: "video",
-          maxResults: 6,
-          key: process.env.YOUTUBE_API_KEY
-        }
+    const r = await axios.get("https://www.googleapis.com/youtube/v3/search", {
+      params: {
+        part: "snippet",
+        q: "Animales prehistoricos documentales",
+        type: "video",
+        maxResults: 6,
+        key: process.env.YOUTUBE_API_KEY
       }
-    );
+    });
 
     res.json(r.data);
   } catch (err) {
@@ -272,12 +195,12 @@ app.get("/youtube", async (_req, res) => {
 });
 
 // =========================================================
-// S3 / R2 UPLOAD
+// R2 UPLOAD
 // =========================================================
 const s3 = new S3Client({
-  region: process.env.S3_REGION || "auto",
+  region: "auto",
   endpoint: process.env.S3_ENDPOINT,
-  forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true",
+  forcePathStyle: true,
   credentials: {
     accessKeyId: process.env.S3_ACCESS_KEY_ID,
     secretAccessKey: process.env.S3_SECRET_ACCESS_KEY
@@ -286,48 +209,35 @@ const s3 = new S3Client({
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, os.tmpdir()),
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname) || ".mp4";
-    cb(null, `${uuidv4()}${ext}`);
-  }
+  filename: (_req, file, cb) => cb(null, uuidv4() + path.extname(file.originalname))
 });
 
-const uploadVideo = multer({
-  storage,
-  limits: { fileSize: 1024 * 1024 * 500 },
-  fileFilter: (_req, file, cb) => {
-    if (!["video/mp4", "video/webm", "video/ogg"].includes(file.mimetype))
-      return cb(new Error("Formato inválido"));
-    cb(null, true);
-  }
-});
+const upload = multer({ storage });
 
-// SUBIR VIDEO (PROTEGIDO)
-app.post("/upload", auth, uploadVideo.single("video"), async (req, res) => {
-  const temp = req.file?.path;
+// SUBIR VIDEO
+app.post("/upload", auth, upload.single("video"), async (req, res) => {
+  const temp = req.file.path;
 
   try {
     const key = `videos/${req.file.filename}`;
-
     await s3.send(
       new PutObjectCommand({
         Bucket: process.env.S3_BUCKET,
         Key: key,
-        Body: fs.createReadStream(temp),
-        ContentType: req.file.mimetype
+        Body: fs.createReadStream(temp)
       })
     );
 
-    fs.unlink(temp, () => {});
+    fs.unlinkSync(temp);
     res.json({ ok: true, key });
   } catch (err) {
-    if (temp) fs.unlink(temp, () => {});
+    if (fs.existsSync(temp)) fs.unlinkSync(temp);
     res.status(500).json({ error: err.message });
   }
 });
 
-// LISTAR VIDEOS (PROTEGIDO)
-app.get("/videos", auth, async (_req, res) => {
+// LISTAR VIDEOS
+app.get("/videos", auth, async (req, res) => {
   try {
     const list = await s3.send(
       new ListObjectsV2Command({
@@ -336,24 +246,20 @@ app.get("/videos", auth, async (_req, res) => {
       })
     );
 
-    const items = list.Contents || [];
-
     const result = await Promise.all(
-      items
-        .filter((obj) => obj.Key && !obj.Key.endsWith("/"))
-        .map(async (obj) => ({
-          key: obj.Key,
-          size: obj.Size,
-          lastModified: obj.LastModified,
-          url: await getSignedUrl(
-            s3,
-            new GetObjectCommand({
-              Bucket: process.env.S3_BUCKET,
-              Key: obj.Key
-            }),
-            { expiresIn: 3600 }
-          )
-        }))
+      (list.Contents || []).map(async obj => ({
+        key: obj.Key,
+        size: obj.Size,
+        lastModified: obj.LastModified,
+        url: await getSignedUrl(
+          s3,
+          new GetObjectCommand({
+            Bucket: process.env.S3_BUCKET,
+            Key: obj.Key
+          }),
+          { expiresIn: 3600 }
+        )
+      }))
     );
 
     res.json({ videos: result });
@@ -366,6 +272,4 @@ app.get("/videos", auth, async (_req, res) => {
 // PUERTO
 // =========================================================
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
-});
+app.listen(PORT, () => console.log(`🚀 API lista en puerto ${PORT}`));
