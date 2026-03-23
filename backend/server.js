@@ -1,5 +1,5 @@
 // ======================
-// server.js — ARK Backend (JSON Database) + CORS FIX FINAL
+// server.js — ARK Backend (JSON Database) + ADMIN AUTO + CORS FINAL
 // ======================
 
 require("dotenv").config();
@@ -37,7 +37,7 @@ const stripe = process.env.STRIPE_SECRET_KEY
 const app = express();
 
 // =========================================================
-// CORS — ESTE BLOQUE SIEMPRE DEBE IR ARRIBA
+// CORS GLOBAL
 // =========================================================
 app.use(cors({
   origin: [
@@ -63,7 +63,31 @@ app.use((req, res, next) => {
 app.use(express.json());
 
 // =========================================================
-// ROOT — API ALIVE
+// AUTO-CREAR ADMIN
+// =========================================================
+(async () => {
+  const adminEmail = "rodrimimi48@gmail.com";
+  const adminPass = "Titipigmeo211403";
+
+  const exists = db.getUser(adminEmail);
+
+  if (!exists) {
+    const hash = await bcrypt.hash(adminPass, 10);
+
+    db.addUser({
+      email: adminEmail,
+      password_hash: hash,
+      created_at: new Date().toISOString()
+    });
+
+    console.log("✔ ADMIN creado automáticamente:", adminEmail);
+  } else {
+    console.log("✔ ADMIN ya existe:", adminEmail);
+  }
+})();
+
+// =========================================================
+// ROOT
 // =========================================================
 app.get("/", (req, res) => {
   res.json({ status: "ARK API ONLINE" });
@@ -89,7 +113,7 @@ app.post("/register", async (req, res) => {
     created_at: new Date().toISOString()
   });
 
-  return res.json({ success: true });
+  res.json({ success: true });
 });
 
 // =========================================================
@@ -109,15 +133,17 @@ app.post("/login", async (req, res) => {
   const code = Math.floor(100000 + Math.random() * 900000).toString();
   codes.set(email, { code, expires: Date.now() + 5 * 60 * 1000 });
 
-  sendVerificationCode(email, code).catch(() => console.log("Código 2FA:", code));
+  sendVerificationCode(email, code)
+    .catch(() => console.log("Código 2FA:", code));
 
-  return res.json({ step: "2FA" });
+  res.json({ step: "2FA" });
 });
 
 app.post("/verify-2fa", (req, res) => {
   const { email, code } = req.body;
 
-  if (!codes.has(email)) return res.status(400).json({ error: "Código no solicitado" });
+  if (!codes.has(email))
+    return res.status(400).json({ error: "Código no solicitado" });
 
   const data = codes.get(email);
 
@@ -133,18 +159,17 @@ app.post("/verify-2fa", (req, res) => {
     expiresIn: "2h"
   });
 
-  return res.json({ success: true, token });
+  res.json({ success: true, token });
 });
 
 // =========================================================
 // JWT Middleware
 // =========================================================
 function auth(req, res, next) {
-  const header = req.headers.authorization;
-  if (!header)
-    return res.status(401).json({ error: "Token requerido" });
+  const h = req.headers.authorization;
+  if (!h) return res.status(401).json({ error: "Token requerido" });
 
-  const token = header.split(" ")[1];
+  const token = h.split(" ")[1];
 
   try {
     req.user = jwt.verify(token, process.env.JWT_SECRET);
@@ -160,9 +185,7 @@ function auth(req, res, next) {
 app.post("/chat", async (req, res) => {
   try {
     const { pregunta } = req.body;
-
-    if (!pregunta)
-      return res.status(400).json({ error: "Falta pregunta" });
+    if (!pregunta) return res.status(400).json({ error: "Falta pregunta" });
 
     const resp = await axios.post(
       "https://router.huggingface.co/v1/chat/completions",
@@ -182,13 +205,14 @@ app.post("/chat", async (req, res) => {
     );
 
     res.json({ respuesta: resp.data.choices[0].message.content });
-  } catch {
+
+  } catch (err) {
     res.status(500).json({ error: "IA error" });
   }
 });
 
 // =========================================================
-// MAPBOX TOKEN
+// MAPBOX
 // =========================================================
 app.get("/config/mapbox", (req, res) => {
   const token = process.env.MAPBOX_PUBLIC_TOKEN;
@@ -201,27 +225,25 @@ app.get("/config/mapbox", (req, res) => {
 // =========================================================
 app.get("/youtube", async (req, res) => {
   try {
-    const r = await axios.get(
-      "https://www.googleapis.com/youtube/v3/search",
-      {
-        params: {
-          part: "snippet",
-          q: "Animales prehistoricos documentales",
-          type: "video",
-          maxResults: 6,
-          key: process.env.YOUTUBE_API_KEY
-        }
+    const r = await axios.get("https://www.googleapis.com/youtube/v3/search", {
+      params: {
+        part: "snippet",
+        q: "Animales prehistoricos documentales",
+        type: "video",
+        maxResults: 6,
+        key: process.env.YOUTUBE_API_KEY
       }
-    );
+    });
 
     res.json(r.data);
+
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // =========================================================
-// STRIPE CHECKOUT (NUEVO)
+// STRIPE CHECKOUT
 // =========================================================
 app.post("/crear-pago", async (req, res) => {
   if (!stripe) return res.status(500).json({ error: "Stripe no configurado" });
@@ -297,7 +319,9 @@ app.post("/upload", auth, upload.single("video"), async (req, res) => {
   }
 });
 
+// =========================================================
 // LISTAR VIDEOS
+// =========================================================
 app.get("/videos", auth, async (req, res) => {
   try {
     const list = await s3.send(
@@ -314,10 +338,7 @@ app.get("/videos", auth, async (req, res) => {
         lastModified: obj.LastModified,
         url: await getSignedUrl(
           s3,
-          new GetObjectCommand({
-            Bucket: process.env.S3_BUCKET,
-            Key: obj.Key
-          }),
+          new GetObjectCommand({ Bucket: process.env.S3_BUCKET, Key: obj.Key }),
           { expiresIn: 3600 }
         )
       }))
@@ -329,7 +350,6 @@ app.get("/videos", auth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
 
 // =========================================================
 // PUERTO
